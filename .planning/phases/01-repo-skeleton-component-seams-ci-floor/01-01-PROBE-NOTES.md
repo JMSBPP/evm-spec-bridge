@@ -273,3 +273,40 @@ and now it is a real test rather than a formality.
 If Chart compiles regardless via the source-dep path, the ~5-minute cold cost is unavoidable while
 we consume the spec by git commit. Alternatives worth weighing later (NOT Phase 1): vendoring only
 the modules needed, or consuming a published package rather than a git ref. Recorded, not acted on.
+
+---
+
+## Verdict
+
+**GREEN — proceed to 01-02**
+
+`cfmm-vol-markets-spec` at `f2736e0` **compiles** as a Stack git extra-dep. Exit 0, wall-clock
+**281 s** cold on this host. Resolution is not compilation, and compilation is now proven — the
+phase's highest-value unknown is retired at the cheapest possible moment, before any repository
+structure exists.
+
+This is the first measured build number in the project. Every estimate in the planning tree
+before this line was folklore.
+
+### Corroborated upstream with a stronger instrument
+
+The spec's own session independently ran `stack build --dry-run` against `f2736e0` on a cold
+scratch root, with a probe importing the same two modules. The **build plan** contains
+`Chart-1.9.5`, `Chart-cairo-1.9.4.1`, `colour-2.3.7`, `gtk2hs-buildtools-0.13.12.0`, `lens-5.3.6`
+— 57 packages planned.
+
+`--dry-run` is the better instrument: it is Stack's *intent* before compilation, so it cannot be
+caching, machine noise, or the 6.6% delta this session was unwilling to call signal. Two
+independent methods, same conclusion. Worth remembering for later phases — when the question is
+"what will be built", ask the planner, not the clock.
+
+### Untested hypothesis recorded, not adopted
+
+Upstream proposes that making `plot/` a separate **package** (not an internal sublibrary) would let
+consumers write `subdirs: [core]` in the git extra-dep and never see the plot package — because
+packages, not sublibraries, are the unit Stack selects. They explicitly declined to assert it
+without testing, which is the right call given the day's record. **Not adopted, not depended on.**
+If it is measured and works, revisit the pin.
+
+Scratch build trees removed after recording. Retained: the two `.log` files and `.result` files are
+NOT retained either — the numbers above are the artifact.
