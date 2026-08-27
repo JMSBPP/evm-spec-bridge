@@ -56,3 +56,53 @@ canonical, pinning the fork would silently ship un-merged spec code inside our a
 Both URLs recorded here so downstream greps resolve either way:
 - canonical (PINNED): `https://github.com/d2p-finance/cfmm-vol-markets-spec.git`
 - fork (reference only): `https://github.com/JMSBPP/cfmm-vol-markets-spec.git`
+
+---
+
+## D1 — does Phase 1 carry the cfmm-scratchpad extra-dep?
+
+**DECISION: add-now**
+
+Rationale: a guard is only a guard if the thing it forbids is possible. With `extra-deps: []` in
+both configs, `stack.yaml` and `stack-core.yaml` would be semantically identical — the negative
+test would go red for *any* unresolvable package name rather than because of the seam, and would
+measure nothing. Cairo is also unprovable without it, since cairo enters the build graph only
+through `cfmm-scratchpad`.
+
+### Naming trap discovered during this task
+
+**The repository is `cfmm-vol-markets-spec`. The Haskell package inside it is `cfmm-scratchpad`.**
+Almost certainly a leftover from `stack new cfmm-scratchpad`; the package `description` even reads
+"Haskell twin of cfmm-vol-markets-spec". There is exactly one package in the repo.
+
+Both names are correct, in different places — do not "fix" one into the other:
+
+| Written in | Value |
+|---|---|
+| git URL in `extra-deps` | `https://github.com/d2p-finance/cfmm-vol-markets-spec.git` (the REPO) |
+| `build-depends:` | `cfmm-scratchpad` (the PACKAGE) |
+| seam-guard / negative-test greps | `cfmm-scratchpad` — must match what a violating `build-depends` would say |
+
+### What `add-now` actually costs — measured, not assumed
+
+- `src/Volatility/VolOrder.hs` and `src/Panoptic/NId.hs` — the only modules this bridge will call —
+  import Chart **zero** times.
+- **19 other modules** import `Graphics.Rendering.Chart`, spread across `Payoffs/`, `Greeks/`,
+  `Pricing/`, `Liquidity/`, `Volatility/` and `Plotting/`.
+- `Chart`, `Chart-cairo` and `colour` are declared at **package level**, so the library inherits
+  them regardless of use.
+- `library:` is a single stanza (`source-dirs: src`), so depending on the library compiles the
+  WHOLE tree — all 19 Chart users included.
+
+Net: we compile a plotting library, cairo and pango to reach a bit-packing function that needs
+none of them. Accepted for Phase 1 — Task 5 measures the real number, which converts this from an
+argument into evidence.
+
+### Follow-up worth carrying (NOT blocking Phase 1)
+
+Moving `Chart` / `Chart-cairo` / `colour` from package-level dependencies into the spec's
+executable stanza would make the library plot-free and cut build time for every consumer. That is
+a `JMSBPP` → `d2p-finance/cfmm-vol-markets-spec` PR. It also bears on the consumer's OPEN Phase 6
+packaging decision, which currently frames cairo as an *executable* cost when it is in fact a
+*library* cost — their "new exe vs mode on cfmm-scratchpad-exe" choice does not avoid cairo either
+way.
