@@ -486,3 +486,38 @@ two is precisely the error made earlier today in `## Native deps`. A separate pr
 and the image's own hpack regenerates every `.cabal`. The must-have "hpack never runs inside the
 image" is false without that line, and the criterion "no COPY line names package.yaml" passes
 vacuously because `COPY . .` names nothing.
+
+### The provisioning question, answered properly
+
+Separate probe: build `evm-spec-bridge-cfmm-adapter` (the one component reaching the spec) in
+`haskell:9.10.3-bookworm` with **no cairo dev headers installed**.
+
+**RESULT: FAILS.**
+
+```
+[S-7011] While building package cairo-0.13.12.0 ... Process exited with code: ExitFailure 1
+```
+
+The Haskell `cairo-0.13.12.0` binding cannot configure without the native headers.
+
+| Build | cairo headers needed? |
+|---|---|
+| `evm-spec-bridge-transport` only (Phase 1 image) | **No** — never reaches the spec |
+| `evm-spec-bridge-cfmm-adapter` (Phase 11) | **YES — build fails without them** |
+
+**Conclusion, and it confirms the earlier retraction.** `libcairo2-dev libpango1.0-dev
+libglib2.0-dev pkg-config` MUST stay in any CI job or image stage that builds the adapter. They are
+correctly absent from Phase 1's image, which builds only the transport exe — but that is a
+statement about Phase 1's scope, not about the spec.
+
+Upstream's core/plot split therefore does not remove the header requirement for a git-extra-dep
+consumer, consistent with the earlier finding that Stack builds all components of a source package.
+
+### A check that lied, again — worth recording
+
+Grepping the failed build log for `cairo\.h|pkg-config|libcairo` returned **0 matches**, on a build
+that died of cairo. The failure surfaces as a `cairo-0.13.12.0` *package configure* failure, not as
+a literal header error. Had the verdict been taken from that grep, the conclusion would have been
+"no cairo problems" about a build that failed for exactly that reason. Caught only by reading the
+tail. Fourth instance in one session of an instrument that could not detect the thing it was
+pointed at.
