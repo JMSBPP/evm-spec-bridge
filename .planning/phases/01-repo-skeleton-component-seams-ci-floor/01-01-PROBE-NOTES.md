@@ -571,3 +571,37 @@ The spike probe (two-package layout, `subdirs: [core]`, cairo-free container) fa
 meaning it got **past** cairo. `Chart`, `Chart-cairo`, `gtk2hs-buildtools` and `cairo-0.13` were all
 absent from a build that previously died on `[S-7011] cairo-0.13.12.0`. Their restructure works in
 a real build, not just in `--dry-run`.
+
+---
+
+## CI gate — MEASURED on a hosted runner (run 33126990346, all green)
+
+| Step | Duration |
+|---|---|
+| `haskell-actions/setup@v2` | **106 s** |
+| cairo/pango apt provisioning | **14 s** |
+| Cold build (`--test --no-run-tests --pedantic`) | **302 s** |
+| Warm rebuild, identical flags | **~0 s** |
+| Tests + hpack drift gate | ~1 s |
+| **seam job total** | **125 s** |
+| **build job total** | **440 s** |
+
+These replace every build-time estimate in the planning tree. The 302 s cold figure matches the
+281 s measured locally on 12 cores — the hosted runner is slower but not dramatically so.
+
+### Three findings
+
+**1. The warm rebuild is instant, which validates the `--pedantic` fix.** Keeping the flag on both
+builds means the configure hash is unchanged and Stack has nothing to do. Had it been dropped for
+the second build, all seven local packages would have recompiled and a full recompile would have
+been reported as an incremental number.
+
+**2. Provisioning is 4.4% of the cost** (14 s apt vs 302 s compile). Upstream warned the win might
+be mostly provisioning; it is the reverse. Almost all the cost is compilation, which is exactly
+what their core/plot restructure removes.
+
+**3. The seam job's fail-fast advantage is smaller than D9 assumed.** It took 125 s, of which 106 s
+is `haskell-actions/setup` — a cost BOTH jobs pay. The guard itself is sub-second warm. Splitting
+the job saves the 302 s build, not the 106 s setup, so the honest claim is "fails before the
+expensive build" rather than "fails in seconds". D9's rationale holds, but for a smaller margin
+than the 0.34 s figure implied.
