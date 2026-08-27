@@ -141,18 +141,37 @@ their decision rather than anticipating it.
 - **Process**: every pre-commit artifact (spec, plan, sub-plan, roadmap, design doc) passes
   a parallel two-step review — Reality Checker plus one matched specialist — before it is
   written, committed, or executed.
+- **Rejection travels in `result`, never in the JSON-RPC `error` field.** Foundry collapses
+  connection-refused, HTTP non-200, malformed body, the 45s timeout *and* a JSON-RPC `error`
+  object into a single untyped `CheatcodeError(string)` revert. A rejection sent as an
+  `error` is indistinguishable from the server being down — the exact conflation this
+  project exists to prevent. `error` is reserved for unknown-method/bad-params, which should
+  revert. This is forced by Foundry's source, not a style preference, and cannot be
+  retrofitted cheaply.
+- **The result is `"0x" <> hex(abi_encode(...))`, always.** `vm.rpc` coerces the JSON result
+  through `json_value_to_token`: objects become tuples in alphabetical key order, numbers
+  round-trip through `f64`, `null` becomes 32 zero bytes. The only byte-exact branch is an
+  even-nibble hex string.
+- **`vm.rpcJson` is unavailable.** Merged 2026-06-05, present only from Foundry v1.8.0
+  (published 2026-08-27); the consumer is on 1.5.1-stable. Target `vm.rpc`.
+- **Handlers must be time-bounded.** `vm.rpc` hardcodes a 45s timeout, 8 retries and 800ms
+  backoff via `ProviderBuilder::new`; `foundry.toml`'s `eth_rpc_timeout` and per-endpoint
+  `retries` do NOT reach it. Retries fire only on 429/503, so connection-refused fails fast —
+  but a hung handler costs the consumer 45s per call with no client-side remedy.
+- **Every handler needs a Haskell exception firewall** (`try . evaluate . force`). Laziness
+  lets a thunk throw during response serialization *after* the outcome was classified as
+  success, killing the connection — so a genuine spec bug presents as transport failure.
 - **CI**: this repo runs its own gate on hosted runners. This is a deliberate deviation from
   the consumer's "no local compilation, CI is the sole gate, dependencies left uninitialized"
   convention, chosen so a greenfield codebase can iterate.
 
 **Risks carried, not resolved:**
 
-- **`vm.rpc` arbitrary-method forwarding is UNVERIFIED and load-bearing.** The entire
-  transport decision assumes Foundry's `vm.rpc` forwards non-`eth_*` method names to a
-  non-Ethereum-node endpoint, and surfaces the result to Solidity usably. If it does not,
-  the JSON-RPC decision that overrode the consumer's Phase 5 does not work and both
-  roadmaps change shape. Under active research; treat every downstream decision as
-  conditional on it.
+- **`try`/`catch` on a cheatcode is the lowest-confidence remaining assumption.** The
+  three-outcome distinction depends on converting a cheatcode revert into a value. Whether
+  Solidity `try`/`catch` works against the cheatcode address (`extcodesize`) is unverified;
+  the low-level `address(vm).call` form sidesteps it. This is the first thing the transport
+  spike must prove.
 - **Hosted CI has been blocked by GitHub billing** elsewhere in this ecosystem
   (`tao-plank-vault`). The chosen gate strategy assumes hosted runners work.
 - **GHC/cabal on the consumer's self-hosted runner is unverified.** Confirmed on the dev
@@ -169,6 +188,12 @@ their decision rather than anticipating it.
   three-outcome struct exist specifically to convert these into hard reds.
 
 **Resolved since initialization:**
+
+- **`vm.rpc` arbitrary-method forwarding is VERIFIED from Foundry source.** `rpc_result`
+  builds a provider and calls `raw_request` with no allowlist, no `eth_*` filter and no node
+  handshake; the 3-arg form is `apply`, not `apply_stateful`, so it needs no fork, no anvil
+  and no `[rpc_endpoints]` entry. `vm.rpc("http://127.0.0.1:PORT", "spec_health", "[]")`
+  works in plain `forge test`. The transport decision stands.
 
 - The consumer's planning agent put the Phase 5 override to its own user verbatim — including
   that it contradicted their standing "do not pre-resolve" instruction — and had it confirmed
