@@ -51,7 +51,16 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Seven components exist (`protocol`, `abi-codec`, `jsonrpc`, `registry`, `transport`, `codegen`, `cfmm-adapter`) and a **spec-less Stack config** builds the six core ones without the `cfmm-scratchpad` extra-dep — so a core component gaining a spec dependency fails to *resolve*, a hard error rather than an inferred signal. A **negative test** deliberately adds the forbidden edge and observes the guard fire
   4. A minimal multi-stage **container image is built and published to GHCR** from CI, proving GHC-in-a-container, cairo/pango resolution and the publish path while there is almost no code. This replaces the self-hosted-runner probe: the question becomes "can their runner run our image", answerable without owning the machine
   5. A `tasty` test scaffold runs in the gate, so later phases add cases rather than also wiring up a runner
-**Plans**: TBD
+**Plans**: 9 plans (sequential — execution is INLINE with the user, `parallelization: false`)
+- [ ] 01-01-PLAN.md — Toolchain ground truth and the `cfmm-scratchpad` compile probe (retires the compile-vs-resolve and hosted-CI billing risks first)
+- [ ] 01-02-PLAN.md — Seven component packages with the cfmm seam declared
+- [ ] 01-03-PLAN.md — Two Stack configs, one source tree; the seam expressed as a proposition
+- [ ] 01-04-PLAN.md — The negative test, and the meta-check that tests the test
+- [ ] 01-05-PLAN.md — `tasty` scaffold, hpack drift gate, `justfile`
+- [ ] 01-06-PLAN.md — Trivial executable and the multi-stage container image (cairo is build-time only)
+- [ ] 01-07-PLAN.md — CI gate: `seam` and `build` jobs on push AND pull_request, with measured build times
+- [ ] 01-08-PLAN.md — GHCR publish and the fork-PR permission asymmetry
+- [ ] 01-09-PLAN.md — DIST-03 made structural: branch protection, a refused push, the promotion PR, README
 
 ### Phase 2: Transport Spike (Throwaway)
 **Goal**: Prove the one mechanism the entire Core Value rests on — that `vm.rpc` forwards an arbitrary `spec_*` method to a plain Haskell HTTP service and that a cheatcode revert can be converted into a value — against the Foundry version the consumer actually pins. Deliberately smaller than it wants to be: no registry, no codegen, no domain, no abstraction around an unproven mechanism. Everything built here is discarded.
@@ -180,7 +189,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Repo Skeleton, Component Seams, CI Floor | 0/TBD | Not started | - |
+| 1. Repo Skeleton, Component Seams, CI Floor | 0/9 | Planned | - |
 | 2. Transport Spike (Throwaway) | 0/TBD | Not started | - |
 | 3. Three-Outcome Protocol Core and Hex-ABI Envelope | 0/TBD | Not started | - |
 | 4. JSON-RPC Service Surface and Fault Taxonomy | 0/TBD | Not started | - |
