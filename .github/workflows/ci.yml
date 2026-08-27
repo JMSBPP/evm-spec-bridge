@@ -115,3 +115,57 @@ jobs:
             echo "| ~/.stack | $(du -sh ~/.stack 2>/dev/null | cut -f1) |"
             echo "| .stack-work | $(du -sh .stack-work 2>/dev/null | cut -f1) |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------- image ---
+  # DIST-04. The container image is the distribution artifact: the consumer runs
+  # it rather than building it, so their runner needs no Haskell toolchain.
+  image:
+    needs: [seam, build]          # do not spend image minutes on an already-red tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write             # appears EXACTLY once, in this job only
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      # An OCI tag MUST match [a-zA-Z0-9_][a-zA-Z0-9._-]{0,127} -- NO SLASH.
+      # github.ref_name is `develop` on a develop push, `feat/x` on a feature
+      # push and `<pr>/merge` on a pull_request. Using it raw fails at tag-parse
+      # time on every PR and every feat/* push -- i.e. everywhere except the one
+      # path a naive test exercises.
+      # `github.repository` is also unusable as an image ref: JMSBPP has capitals.
+      - name: Compute lowercase image ref and a slash-free tag
+        id: meta
+        run: |
+          echo "image=ghcr.io/$(echo "${GITHUB_REPOSITORY}" | tr "[:upper:]" "[:lower:]")" >> "$GITHUB_OUTPUT"
+          echo "safe=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
+      # A PR from a FORK gets a read-only GITHUB_TOKEN: packages:write is
+      # silently downgraded and the push 403s. There is no setting that rescues
+      # this on public repos. So: build on every trigger, push only on `push`.
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (always) and push (push events only)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name == 'push' }}
+          load: true              # so the smoke test below runs the LOCAL image
+          tags: |
+            ${{ steps.meta.outputs.image }}:sha-${{ github.sha }}
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.safe }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      # A Dockerfile that builds but produces a binary that cannot start is a
+      # false green. `load: true` guarantees this is the local image, not a
+      # registry round-trip.
+      - name: Smoke -- the shipped binary runs
+        run: docker run --rm ${{ steps.meta.outputs.image }}:sha-${{ github.sha }} --version
