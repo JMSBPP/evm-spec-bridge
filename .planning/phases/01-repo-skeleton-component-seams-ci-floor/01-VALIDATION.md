@@ -49,7 +49,7 @@ being trusted, not verified.
 |---------|------|------|-------------|-----------|-------------------|--------|
 | Seven packages resolve | TBD | 1 | CFMM-01 | structural | `stack build --dry-run` exits 0 | ⬜ pending |
 | Spec-less config excludes spec | TBD | 1 | CFMM-01 | structural | `stack --stack-yaml stack-core.yaml build --dry-run` exits 0 on a clean tree | ⬜ pending |
-| **Seam guard fires (negative test)** | TBD | 1 | CFMM-01 | negative | Add `cfmm-scratchpad` to a core package → guard exits **1** with `S-4804` | ⬜ pending |
+| **Seam guard fires (negative test)** | TBD | 1 | CFMM-01 | negative | Add `cfmm-vol-markets-spec` to a core package → guard exits **1** with `S-4804` | ⬜ pending |
 | Guard names the offender | TBD | 1 | CFMM-01 | negative | Guard stderr contains the offending package name AND `stack-core.yaml` | ⬜ pending |
 | hpack drift gate | TBD | 1 | DIST-04 | structural | `hpack` then `git diff --exit-code` exits 0 | ⬜ pending |
 | tasty suite runs | TBD | 1 | DIST-04 | harness | `stack build --test` runs the suite and exits 0 | ⬜ pending |
@@ -66,7 +66,7 @@ being trusted, not verified.
 
 ## Wave 0 Requirements
 
-- [ ] `stack.yaml` — full config, snapshot LTS 24.55 by URL, `cfmm-scratchpad` git extra-dep
+- [ ] `stack.yaml` — full config, snapshot LTS 24.55 by URL, `cfmm-vol-markets-spec` git extra-dep
 - [ ] `stack-core.yaml` — spec-less config listing only the six core packages
 - [ ] A `tests:` stanza with `tasty` in at least one package, so the harness exists from day one
 - [ ] The negative-test script — must live **outside** `stack test` (a test of the build, run inside
@@ -85,7 +85,7 @@ being trusted, not verified.
 
 ## Known Validation Gaps
 
-- **`cfmm-scratchpad` resolution ≠ compilation.** The seam guard was verified with `--dry-run`,
+- **`cfmm-vol-markets-spec` resolution ≠ compilation.** The seam guard was verified with `--dry-run`,
   which proves the *build plan*, not that the spec compiles with cairo on a fresh runner. This is
   the highest-value thing to attempt early: if it fails, everything downstream is blocked, and
   Phase 1 is the cheapest place to find out.

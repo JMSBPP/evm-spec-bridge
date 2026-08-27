@@ -43,7 +43,7 @@ boundaries unviolatable.
   graph is declared before anyone can accidentally violate it. Accepts seven near-empty stanzas
   as the cost.
 - `cfmm-adapter` is the ONLY component permitted to depend on the spec package
-  (`cfmm-scratchpad`).
+  (`cfmm-vol-markets-spec`).
 
 ### Build system
 
@@ -57,7 +57,7 @@ boundaries unviolatable.
 ### Seam enforcement
 
 - Enforced by a **spec-less Stack configuration** (`stack-core.yaml` or equivalent) that omits
-  the `cfmm-scratchpad` extra-dep entirely and builds only the six core components.
+  the `cfmm-vol-markets-spec` extra-dep entirely and builds only the six core components.
 - Mechanism: a core component that gains a spec dependency **fails to resolve** — a hard,
   unambiguous error, not a slow build or an inferred signal.
 - This was chosen deliberately over "build core targets only" against the normal config, which
@@ -146,7 +146,7 @@ boundaries unviolatable.
 - `/home/jmsbpp/cfmms-playground/cfmm-wt/vol-markets/spec/stack.yaml` — the snapshot to match
   (LTS 24.55, pinned by URL)
 - `/home/jmsbpp/cfmms-playground/cfmm-wt/vol-markets/spec/package.yaml` — the spec's package name
-  (`cfmm-scratchpad`) and its package-level `Chart`/`Chart-cairo` dependencies, which the library
+  (`cfmm-vol-markets-spec`) and its package-level `Chart`/`Chart-cairo` dependencies, which the library
   inherits
 - `/home/jmsbpp/.claude/CLAUDE.md` — the fork → PR rule and the mandatory two-step reviewer
   process for pre-commit artifacts
@@ -167,7 +167,7 @@ boundaries unviolatable.
   adopted here, with one deliberate divergence: our gate runs on push as well as PR.
 
 ### Integration Points
-- `cfmm-adapter` → `cfmm-scratchpad` is the single permitted edge to the outside world, and the
+- `cfmm-adapter` → `cfmm-vol-markets-spec` is the single permitted edge to the outside world, and the
   one the seam guard exists to protect.
 - The published image is the integration surface for `cfmm-vol-markets`, replacing a native build
   on their runner.

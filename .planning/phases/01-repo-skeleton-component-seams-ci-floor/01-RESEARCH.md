@@ -346,6 +346,22 @@ Run against the **real** spec repo:
 
 ```yaml
 # stack.yaml
+> **SUPERSEDED IN PART — read before acting on any package name or SHA below.**
+>
+> On 2026-08-27, after this research was written, the spec upstream merged two changes:
+> 1. the package was **renamed** `cfmm-scratchpad` → `cfmm-vol-markets-spec` (`5d1fb16`);
+> 2. Chart/Chart-cairo/colour were **split out of the library** into an internal `plot` sublibrary
+>    (`f2736e0`), leaving the core library depending only on `base`, `mwc-random`, `vector`.
+>
+> **Pin `f2736e058cfde1a03708f34772bfc2bb47c55cf6`, and use `cfmm-vol-markets-spec` in
+> `build-depends`.** Every occurrence of `cfmm-scratchpad` below is retained deliberately as the
+> historical record of what was measured at commit `93fe3acf` — it is NOT an instruction. The
+> PLAN files carry the corrected names and SHA.
+>
+> Also corrected: this document's cairo-cost reasoning counted DIRECT Chart imports. The correct
+> measure is transitive closure — 49 of 62 modules were tainted, not 19, and `Panoptic.NId` was
+> two hops from cairo via `Pricing.PriceDeformation`.
+
 extra-deps:
 - git: https://github.com/JMSBPP/cfmm-vol-markets-spec.git
   commit: 93fe3acfd2aa13dd28b54d5d44022dc9c10b6341
