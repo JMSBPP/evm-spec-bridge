@@ -310,3 +310,32 @@ If it is measured and works, revisit the pin.
 
 Scratch build trees removed after recording. Retained: the two `.log` files and `.result` files are
 NOT retained either — the numbers above are the artifact.
+
+---
+
+## Hosted CI smoke
+
+Run 2026-08-27 during `01-01-T7` on a throwaway branch that never touched `develop`.
+
+- Actions permissions — fork `JMSBPP/evm-spec-bridge`: `{"enabled":true,"allowed_actions":"all"}`
+- Actions permissions — canonical `d2p-finance/evm-spec-bridge`: `{"enabled":true,"allowed_actions":"all"}`
+- Run id `33125024351`, `status=completed`, **conclusion: success**
+- Runner: `Linux runnervmgx7h7 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64`
+- Disk on `/`: `145G` total, **`87G` available** (41% used)
+
+### What this retires, and what it does not
+
+**Retires:** the `tao-plank-vault` hosted-CI billing concern PROJECT.md has carried since
+initialization. A billing block presents as a workflow that queues and is immediately cancelled —
+not as a settings flag being off. The settings flag was already verified in research; this is the
+first evidence a runner *executes*. Combined with Actions being free for public repositories on
+standard runners, and both repos being public, the concern is closed.
+
+**Does not retire:** anything about the *self-hosted* runner belonging to `cfmm-vol-markets`. That
+is a different machine with an unverified Haskell toolchain, and it is out of scope for this repo.
+
+Headroom check: 87 GB free against a measured 229 MB Stack root plus a GHC bindist and
+`.stack-work`. Not a constraint. Note this is the ephemeral hosted runner — the persistent
+self-hosted case is where disk and leaked state actually bite, and that is Phase 10's problem.
+
+Throwaway branch and workflow deleted locally and remotely after recording.
