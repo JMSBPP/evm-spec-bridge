@@ -409,3 +409,36 @@ unqualified. Do not repeat the bare number — it is true only under a condition
 
 This is the same shape as the day's other corrections: a real measurement, taken under conditions
 that differ from where it will be applied, generalised without stating the condition.
+
+---
+
+## Negative test + meta-check (01-04) — the guard is verified, not trusted
+
+`scripts/seam-negative-test.sh`, three stages, scratch copy, never mutates the tree.
+
+| Stage | Asserts | Result |
+|---|---|---|
+| CONTROL | clean tree resolves under `stack-core.yaml` | ✓ |
+| NEGATIVE | injected edge fails with `S-4804` naming package, dependency and config file | ✓ |
+| CONTRAST | the same tree DOES resolve under full `stack.yaml` | ✓ |
+
+`PASS` in **3.8 s** warm. CONTRAST is what separates "the guard fired" from "the package name was
+bad" — without it, a typo in the injected name would produce the same red.
+
+### Meta-check: the negative test was made to FAIL, deliberately
+
+Sabotage: gave `stack-core.yaml` the spec extra-dep, making it semantically identical to
+`stack.yaml` — a guard that cannot fire.
+
+```
+FAIL(negative): guard did NOT fire on an injected spec dependency
+exit=1
+```
+
+It failed **at the NEGATIVE stage**, which is the whole point: failing at CONTROL would have meant
+a broken environment, not a vacuous guard. Restored afterwards with a **sha256 match** confirming
+byte-identical restoration, then re-run: `PASS`.
+
+Three layers, each verifying the one below: the guard catches violations; the negative test proves
+the guard fires; the meta-check proves the negative test can fail. Only the third makes the first
+two evidence rather than assertion.
