@@ -22,7 +22,7 @@
 
 ### Server
 
-- [ ] **SRV-01** **[S]**: The server binds loopback HTTP on a caller-supplied ephemeral port, addressed as `http://127.0.0.1:PORT`. *`guess_local_url` recognises only `localhost`/`127.0.0.1`/`::1`; anything else honours `HTTP_PROXY`*
+- [ ] **SRV-01** **[S]**: The server binds loopback HTTP on a caller-supplied ephemeral port (a published container port mapping), addressed as `http://127.0.0.1:PORT`. *`guess_local_url` recognises only `localhost`/`127.0.0.1`/`::1`; anything else honours `HTTP_PROXY`*
 - [ ] **SRV-09**: The harness publishes the endpoint as `EVM_SPEC_BRIDGE_URL`, consumed through the `evm_spec_bridge` alias in `[rpc_endpoints]` via `${...}` interpolation — so call sites read as a name while the port stays ephemeral
 - [ ] **SRV-02**: One warm process serves an entire `forge test` run — no per-case spawn
 - [ ] **SRV-03**: Request handling is concurrency-safe — no global mutable state and no lock serializing spec evaluation, since `forge test` is parallel across logical cores by default
@@ -30,7 +30,7 @@
 - [ ] **SRV-05** **[S]**: Every handler is time-bounded and a timeout returns a typed response rather than dropping the connection. *Foundry hardcodes a 45s timeout for `vm.rpc`; `foundry.toml`'s `eth_rpc_timeout` does not reach it*
 - [ ] **SRV-06**: `spec_health` returns the same tagged envelope a domain method returns, so a green health check proves domain payloads survive the trip
 - [ ] **SRV-07**: `spec_fixtureRejection` and `spec_fixtureTransportFault` exercise the rejection and fault paths with no domain payload
-- [ ] **SRV-08**: Lifecycle is owned by the harness — start, poll readiness with backoff and a deadline, run, stop — and failure to become ready aborts the run rather than proceeding
+- [ ] **SRV-08**: Lifecycle is owned by the harness — start, poll readiness with backoff and a deadline, run, stop — and failure to become ready aborts the run rather than proceeding. Implemented as container lifecycle (`docker run --rm`), which bounds process lifetime by construction rather than by best-effort teardown
 
 ### Code Generation
 
@@ -59,10 +59,10 @@
 
 ### Distribution
 
-- [ ] **DIST-01**: The bridge is consumable as a git submodule pinned by the consumer
+- [ ] **DIST-01**: The bridge is consumable by the consumer as a published container image (pinned by tag/digest) for the oracle, plus a git submodule pin of this repo for the generated Solidity — so the consumer needs no Haskell toolchain
 - [ ] **DIST-02**: The bridge is the single authority on the spec version; the consumer drops its direct `spec/` pin
 - [ ] **DIST-03**: Changes reach `d2p-finance/evm-spec-bridge` only via PR from the `JMSBPP` fork
-- [ ] **DIST-04**: An own CI gate on hosted runners builds the library, the server and the generated Solidity
+- [ ] **DIST-04**: An own CI gate on hosted runners, triggered on push AND pull request, builds every component, the server, the generated Solidity, and the container image, and publishes the image to GHCR
 - [ ] **DIST-05**: A lifecycle lane deliberately leaks a server and starts a second, asserting the spec-SHA and ephemeral-port guards actually fire — since hosted runners are ephemeral and cannot produce that condition naturally
 - [ ] **DIST-06**: This repo pins an exact Foundry version, published as part of the integration contract, so every measured transport finding is scoped to something enforceable
 

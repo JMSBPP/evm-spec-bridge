@@ -27,16 +27,16 @@ deliberate: it is what makes the pressure to guess evaporate.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Repo Skeleton, Component Seams, CI Floor** - Stack component boundaries (including the untouched cfmm seam) build green on hosted CI, reachable only by PR from the fork
+- [ ] **Phase 1: Repo Skeleton, Component Seams, CI Floor** - Seven Stack components build green on hosted CI with the cfmm seam enforced by a spec-less config, and a minimal container image publishes to GHCR
 - [ ] **Phase 2: Transport Spike (Throwaway)** - A green `forge test` proves `vm.rpc` reaches a Haskell service against the consumer's exact pinned Foundry version
 - [ ] **Phase 3: Three-Outcome Protocol Core and Hex-ABI Envelope** - Success, rejection and transport failure become distinguishable by construction, byte-exact through Foundry's coercion
 - [ ] **Phase 4: JSON-RPC Service Surface and Fault Taxonomy** - A strict, pure, namespaced method surface with fixture methods that exercise all three outcomes with zero domain code
 - [ ] **Phase 5: Warm Server Hardening** - One warm process survives a full parallel fuzz run without leaking, wedging, or filing a spec bug as a transport failure
-- [ ] **Phase 6: Harness Lifecycle and Ephemeral Endpoint** - The harness owns start/ready/run/stop on a caller-supplied ephemeral port, and a server that never becomes ready aborts the run
+- [ ] **Phase 6: Harness Lifecycle and Ephemeral Endpoint** - The harness owns container start/ready/run/stop on a caller-supplied ephemeral port, and an oracle that never becomes ready aborts the run
 - [ ] **Phase 7: Spec Wiring, Staleness and Vacuity Guards** - The answering process proves which spec commit it was built from, and a run where the oracle never succeeded fails loudly
 - [ ] **Phase 8: Method Registry and Generated Solidity Interface** - The Solidity interface is generated from the Haskell method registry, committed, and CI goes red on drift
 - [ ] **Phase 9: Generated Call Path — Encoder, Decoder, Call Site** - The whole Solidity call path is generated, with no path that returns without a verdict and no unchecked handshake
-- [ ] **Phase 10: Consumption Packaging and Integration** - The consumer can pin the bridge as a submodule and get a green payload-free skeleton in its own CI
+- [ ] **Phase 10: Consumption Packaging and Integration** - The consumer pulls the published image, pins this repo for the generated Solidity, and gets a green payload-free skeleton with no Haskell toolchain on their runner
 - [ ] **Phase 11: cfmm Adapter — `VolOrder(T)` Codec and `volOrderToTokenId`** - The real domain method answers over the wire, with guard violations arriving as typed rejections (EXTERNALLY BLOCKED)
 
 ## Phase Details
@@ -48,8 +48,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Success Criteria** (what must be TRUE):
   1. A push opens a PR from `JMSBPP/evm-spec-bridge` to `d2p-finance/evm-spec-bridge` and CI runs on it; a direct push to the canonical repo is not the path any change takes
   2. CI builds every component that exists and fails the run if any does not compile, with actual cold and warm build times recorded (all current estimates are unmeasured). The Stackage snapshot matches the spec's (LTS 24.55), and the hpack-generated `.cabal` is gated against `package.yaml` drift the same way the generated Solidity is
-  3. A `cfmm-adapter` component stanza exists and no core component `build-depends` on `cfmm-vol-markets-spec` — verified by a build that fails if that edge is added
-  4. A throwaway probe job has answered whether Stack/GHC can build *and run* a trivial Haskell binary on the consumer's self-hosted runner — including whether the cairo/pango system headers the spec's `Chart-cairo` dependency requires are present — and the answer is recorded as evidence rather than assumption
+  3. Seven components exist (`protocol`, `abi-codec`, `jsonrpc`, `registry`, `transport`, `codegen`, `cfmm-adapter`) and a **spec-less Stack config** builds the six core ones without the `cfmm-scratchpad` extra-dep — so a core component gaining a spec dependency fails to *resolve*, a hard error rather than an inferred signal. A **negative test** deliberately adds the forbidden edge and observes the guard fire
+  4. A minimal multi-stage **container image is built and published to GHCR** from CI, proving GHC-in-a-container, cairo/pango resolution and the publish path while there is almost no code. This replaces the self-hosted-runner probe: the question becomes "can their runner run our image", answerable without owning the machine
+  5. A `tasty` test scaffold runs in the gate, so later phases add cases rather than also wiring up a runner
 **Plans**: TBD
 
 ### Phase 2: Transport Spike (Throwaway)
@@ -105,10 +106,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Depends on**: Phase 5
 **Requirements**: SRV-01, SRV-08, SRV-09
 **Success Criteria** (what must be TRUE):
-  1. The server binds loopback on a port supplied by its caller and refuses to start without one — no default port a leaked process could be found on
+  1. The server binds loopback on a port supplied by its caller and refuses to start without one — no default port a leaked process could be found on. Under the container distribution this is a published port mapping, not a bare bind
   2. The harness publishes the endpoint as `EVM_SPEC_BRIDGE_URL`, consumed through the `evm_spec_bridge` alias, so call sites read as a name while the port stays ephemeral
-  3. Readiness is polled with backoff against a deadline, checking the process is still alive inside the loop; failure to become ready aborts the run with the server's logs attached, and no `sleep` appears anywhere in the lifecycle
-  4. Teardown always runs — including when the suite fails — and a post-suite assertion confirms no server was left listening
+  3. Readiness is polled with backoff against a deadline, checking the container is still running inside the loop; failure to become ready aborts the run with the container's logs attached, and no `sleep` appears anywhere in the lifecycle
+  4. Teardown always runs — including when the suite fails — and a post-suite assertion confirms no server was left listening. `docker run --rm` bounds the process lifetime by construction, so teardown is a guarantee rather than a best effort — the single largest reason the container distribution was adopted
 **Plans**: TBD
 
 ### Phase 7: Spec Wiring, Staleness and Vacuity Guards
@@ -118,7 +119,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Success Criteria** (what must be TRUE):
   1. `spec_health` reports the spec commit SHA the running binary was **built from**, stamped at compile time — rebuilding against a different spec commit changes the reported SHA without any source edit
   2. `spec_runStats` reports call counts and outcome tallies, and a run in which the oracle never returned a success fails loudly instead of passing silently
-  3. A CI lane deliberately leaks a server and starts a second one, and the spec-SHA and ephemeral-port guards are observed to *fire* — the failure class that hosted ephemeral runners structurally cannot produce is produced on purpose
+  3. A CI lane deliberately leaks a server and starts a second one, and the spec-SHA and ephemeral-port guards are observed to *fire* — the failure class that hosted ephemeral runners structurally cannot produce is produced on purpose. The container distribution narrows but does not remove this: `--rm` bounds a *cleanly-exiting* container, while a wedged or detached one can still linger, and an image tag can still be stale relative to the spec pin
   4. There is exactly one spec checkout in an integration build: the bridge is the single authority on the spec version, with a documented override recipe and a coherence check that goes red if two checkouts appear
 **Plans**: TBD
 
@@ -152,8 +153,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Depends on**: Phase 9
 **Requirements**: DIST-01
 **Success Criteria** (what must be TRUE):
-  1. A consumer repo pinning this bridge as a git submodule can start the server, run `forge test` against the health and fixture methods, and see all three outcomes distinguished — with no domain code on either side
-  2. At least one self-hosted-shaped CI job (or a container mimicking a persistent runner) runs before integration is declared ready, covering the zombie-process and port-collision class that ephemeral hosted runners hide permanently
+  1. A consumer repo **pulls the published image** and pins this repo as a git submodule for the generated Solidity, starts the oracle, runs `forge test` against the health and fixture methods, and sees all three outcomes distinguished — with no domain code on either side and **no Haskell toolchain on their runner**
+  2. At least one self-hosted-shaped CI job (a persistent-runner mimic) runs before integration is declared ready, covering the zombie-process and port-collision class that ephemeral hosted runners hide permanently — verifying the guards fire even though the container bounds most of the class
   3. The README states honestly what the compile-time guarantee does and does not cover, and the harness script is documented well enough that the consumer does not reinvent lifecycle handling
 **Plans**: TBD
 
@@ -227,3 +228,17 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   to LATER-05.
 - **Hosted CI for Phases 1-9, self-hosted-shaped job before integration** — the recorded tension
   (D6) is resolved at Phase 10, and probed cheaply in Phase 1.
+- **The container image is the distribution artifact** (decided during Phase 1 discussion). The
+  bridge is built and published to GHCR by our gate; the consumer runs it rather than building it.
+  This collapses three risks into one — toolchain provisioning on a runner we cannot inspect, the
+  zombie/port-collision class on a *persistent* runner, and the consumer's build time, since
+  `Chart-cairo` arrives through the spec *library* rather than only its executable. Phase 1 proves
+  the image path while there is almost no code; Phase 6's lifecycle and Phase 10's packaging are
+  written against it.
+- **Execution is INLINE, not delegated to background agents** (decided during Phase 1 discussion,
+  applies to every phase). Plans are executed in conversation with heavy user intervention:
+  decision points are surfaced rather than silently resolved, and reasoning is explained as the
+  work happens. The phases are explicitly a learning exercise for the user, not only a deliverable.
+  Planners must therefore prefer many small tasks over few large ones, place explicit checkpoints
+  wherever a non-obvious choice is made, and never bundle independent decisions into one task.
+  `plan_checker` stays disabled — the user is the check.
