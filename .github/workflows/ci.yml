@@ -1,0 +1,117 @@
+name: CI
+
+# Push AND pull_request, deliberately. The consumer's gate is PR-only, which is
+# why their try/catch experiment costs them a branch and a PR just to see a
+# result. Gating on push means a feat/* branch is validated while the work is
+# happening. Cost, stated rather than discovered: a same-repo PR builds every
+# commit twice, under different concurrency groups.
+on: [push, pull_request]
+
+permissions:
+  contents: read        # widened to packages:write in the image job ONLY (01-08)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  STACK_FLAGS: ""       # system-ghc is made global below, so no per-command flags
+
+jobs:
+  # CFMM-01. Separated from build on LATENCY grounds, not tidiness -- but see
+  # the cache step: this is only fast when .stack-work is warm (~0.3s). A COLD
+  # tree costs ~119s (measured). CI always starts cold, so the cache MUST be
+  # restored before this job runs or the fail-fast property is fiction.
+  seam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.10.3'      # inherited from LTS 24.55, not chosen
+          stack-version: '3.11.1'    # pinned: bundles hpack 0.39.6
+          enable-stack: true
+      # haskell-actions/setup does NOT write system-ghc into any Stack config.
+      # Stack defaults to system-ghc:false/install-ghc:true, so a bare `stack`
+      # in scripts/ would download its own GHC -- inside the job whose entire
+      # thesis is "0.3 seconds".
+      - name: Make system-GHC the global default
+        run: |
+          stack config set system-ghc true --global
+          stack config set install-ghc false --global
+      - name: Restore Stack cache BEFORE the guard
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+            components/*/.stack-work
+          # The run_id suffix is load-bearing: Actions caches are IMMUTABLE
+          # ("you cannot change the contents of an existing cache"). Without it
+          # the hashFiles inputs stop changing and the first, cold cache is
+          # frozen for 7 days. restore-keys still matches the prefix.
+          key: stack-${{ runner.os }}-ghc9.10.3-${{ hashFiles('stack.yaml', 'stack.yaml.lock', 'components/*/package.yaml') }}-${{ github.run_id }}
+          restore-keys: stack-${{ runner.os }}-ghc9.10.3-
+      - name: Seam guard (CFMM-01)
+        run: ./scripts/seam-guard.sh
+      - name: Prove the guard fires
+        run: ./scripts/seam-negative-test.sh
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.10.3'
+          stack-version: '3.11.1'
+          enable-stack: true
+      - name: Make system-GHC the global default
+        run: |
+          stack config set system-ghc true --global
+          stack config set install-ghc false --global
+      # MEASURED, not inherited: building cfmm-adapter without these fails with
+      # `[S-7011] While building package cairo-0.13.12.0`. The spec's core/plot
+      # split does NOT remove this for a git extra-dep, because Stack builds all
+      # components of a source package.
+      - name: Native deps for the spec's plotting chain
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2-dev libpango1.0-dev libglib2.0-dev pkg-config
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+            components/*/.stack-work
+          key: stack-${{ runner.os }}-ghc9.10.3-${{ hashFiles('stack.yaml', 'stack.yaml.lock', 'components/*/package.yaml') }}-${{ github.run_id }}
+          restore-keys: stack-${{ runner.os }}-ghc9.10.3-
+      # --pedantic on BOTH builds or neither: it adds -Wall -Werror to local
+      # packages, changing their configure hash. Dropping it for a second build
+      # forces a full recompile, so a "warm" number would be a recompile time
+      # wearing an incremental label.
+      - name: Cold build
+        run: |
+          S=$(date +%s)
+          stack build --test --no-run-tests --pedantic
+          echo "T_COLD=$(( $(date +%s) - S ))" >> "$GITHUB_ENV"
+      - name: Warm rebuild (same flags)
+        run: |
+          S=$(date +%s)
+          stack build --test --no-run-tests --pedantic
+          echo "T_WARM=$(( $(date +%s) - S ))" >> "$GITHUB_ENV"
+      - name: Tests
+        run: stack test --pedantic
+      - name: hpack drift gate
+        run: ./scripts/hpack-drift.sh
+      - name: Record build times
+        if: always()
+        run: |
+          {
+            echo "| metric | value |"
+            echo "|---|---|"
+            echo "| cold build | ${T_COLD:-unmeasured}s |"
+            echo "| warm rebuild | ${T_WARM:-unmeasured}s |"
+            echo "| ~/.stack | $(du -sh ~/.stack 2>/dev/null | cut -f1) |"
+            echo "| .stack-work | $(du -sh .stack-work 2>/dev/null | cut -f1) |"
+          } >> "$GITHUB_STEP_SUMMARY"
