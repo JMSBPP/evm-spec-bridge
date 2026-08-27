@@ -521,3 +521,53 @@ a literal header error. Had the verdict been taken from that grep, the conclusio
 "no cairo problems" about a build that failed for exactly that reason. Caught only by reading the
 tail. Fourth instance in one session of an instrument that could not detect the thing it was
 pointed at.
+
+---
+
+## The gate caught a real bug on its first run (01-07)
+
+CI run `33126472689`, the first execution of our own gate:
+
+```
+overall: failure
+  seam:  success      <- the seam is sound
+  build: failure      <- the code was not
+```
+
+```
+CfmmAdapter.hs:15:17: error: [GHC-83865]
+  Couldn't match expected type 'Int' with actual type 'PanopticTokenId -> Int'
+  Probable cause: 'fourLegNumLegs' is applied to too few arguments
+```
+
+`fourLegNumLegs` is a FUNCTION, not a constant. The line existed to prove the spec was genuinely
+linked, and it had a type error in it.
+
+### Why nothing caught it for four plans — a structural gap, not a slip
+
+`cfmm-adapter` was **never compiled** before this. `protocol` and `transport` were built locally;
+the adapter's only coverage was the seam guard, which runs `stack build --dry-run`.
+
+**A dry run resolves a BUILD PLAN. It does not compile code.** The guard was correctly reporting
+that the adapter's dependencies are satisfiable — a true statement about resolvability that says
+nothing about correctness. Its green was read as evidence of something it never measured.
+
+This is the fifth instrument failure of the session and the only structural one: not a mistaken
+grep, but a guard whose scope was quietly widened in the reader's head from "resolves" to "works".
+
+**Two things follow, both already true in the CI file:**
+1. The `build` job runs `stack build --test --pedantic` over ALL packages, so the adapter is
+   compiled every run. That is what caught this.
+2. The seam job and the build job are answering different questions and neither substitutes for the
+   other. The seam job passing while the build job failed is the system working correctly.
+
+Fixed by keeping the real signature (`specNumLegs :: PanopticTokenId -> Int`) rather than deleting
+the import — a placeholder that no longer touches the spec would reintroduce the vacuity the
+import exists to prevent.
+
+### Confirmed for upstream, separately
+
+The spike probe (two-package layout, `subdirs: [core]`, cairo-free container) failed on THIS bug —
+meaning it got **past** cairo. `Chart`, `Chart-cairo`, `gtk2hs-buildtools` and `cairo-0.13` were all
+absent from a build that previously died on `[S-7011] cairo-0.13.12.0`. Their restructure works in
+a real build, not just in `--dry-run`.
