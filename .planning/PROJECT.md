@@ -41,6 +41,9 @@ All Active requirements are hypotheses until shipped and validated.
       contract change breaks the build instead of drifting
 - [ ] Spec success, spec rejection (carrying the rejecting guard), and transport failure
       are distinct constructors that cannot be conflated by construction
+- [ ] The generated Solidity artifact is a library returning a tagged result struct — not a
+      sentinel value and not a custom error, both of which conflate outcomes
+- [ ] CI fails if the checked-in generated Solidity artifact is stale relative to the schema
 
 **Server**
 
@@ -50,6 +53,10 @@ All Active requirements are hypotheses until shipped and validated.
       shape independently of any domain method
 - [ ] An unreachable or non-responding server is reported as transport failure,
       distinguishably, rather than as a spec answer
+- [ ] The health method reports the spec commit SHA the running binary was **built from**,
+      stamped at compile time — so a stale build cannot misreport its version
+- [ ] The server binds an ephemeral port supplied by its caller, so a leaked process from an
+      earlier CI run cannot be reached by accident
 
 **First demand — cfmm-vol-markets**
 
@@ -140,14 +147,35 @@ their decision rather than anticipating it.
 
 **Risks carried, not resolved:**
 
+- **`vm.rpc` arbitrary-method forwarding is UNVERIFIED and load-bearing.** The entire
+  transport decision assumes Foundry's `vm.rpc` forwards non-`eth_*` method names to a
+  non-Ethereum-node endpoint, and surfaces the result to Solidity usably. If it does not,
+  the JSON-RPC decision that overrode the consumer's Phase 5 does not work and both
+  roadmaps change shape. Under active research; treat every downstream decision as
+  conditional on it.
 - **Hosted CI has been blocked by GitHub billing** elsewhere in this ecosystem
   (`tao-plank-vault`). The chosen gate strategy assumes hosted runners work.
-- **GHC/cabal on the consumer's self-hosted runner is unverified** — their own open blocker
-  for CI-02. A long-lived JSON-RPC service is strictly more demanding than building a
-  binary: the runner must build *and run* a Haskell process. Choosing hosted CI here defers
-  this to integration rather than retiring it.
-- **The consumer's Phase 5 modification is decided but not yet agreed** by the agent that
-  owns their planning tree, and not yet reflected in their documents.
+- **GHC/cabal on the consumer's self-hosted runner is unverified.** Confirmed on the dev
+  machine (GHC 9.10.3, cabal 3.16.1.0), not on the runner. A long-lived service is strictly
+  more demanding than a binary: the runner must build *and run* a Haskell process, with
+  service-ready/test-start races, port collisions and teardown. Choosing hosted CI here
+  defers this rather than retiring it.
+- **Silent false-green is the characteristic failure mode of this project.** Several
+  independent paths produce a green differential test that means nothing: the bridge built
+  against a different spec commit than the consumer believes; a leaked server process on the
+  consumer's *persistent* self-hosted runner answering a later run from an old commit; a
+  decode failure defaulting to a pass; an unreachable oracle read as agreement. Every one is
+  invisible in a passing build. The compile-time `specCommit` assertion and the tagged
+  three-outcome struct exist specifically to convert these into hard reds.
+
+**Resolved since initialization:**
+
+- The consumer's planning agent put the Phase 5 override to its own user verbatim — including
+  that it contradicted their standing "do not pre-resolve" instruction — and had it confirmed
+  before acting. Their ROADMAP/REQUIREMENTS/PROJECT edits are in progress on their side.
+- Their CI-01/CI-02 escalate from a Phase 11 concern to a **prerequisite for their Phase 5**:
+  with a service transport, their payload-free skeleton cannot be gate-observable unless the
+  runner can build and run the process.
 
 ## Key Decisions
 
@@ -163,7 +191,12 @@ their decision rather than anticipating it.
 | Own CI gate on hosted runners | Lets a greenfield codebase iterate, unlike the consumer's no-local-build convention. Defers the self-hosted-runner toolchain question | — Pending |
 | `d2p-finance` canonical, `JMSBPP` fork, PR-only | Standing ecosystem rule; no repo is exempt | — Pending |
 | Do not edit the consumer's planning tree | Their ROADMAP/REQUIREMENTS/PROJECT changes go through their own two-step review. Cross-agent edits bypass that gate | — Pending |
-| **OPEN — RPC-02 responsibility split** | Which side owns wire encode/decode, input validation, guard evaluation, error classification. Genuinely owned by the consumer's Phase 5 and not decided by the user. Sizes this project's surface area: dumb transport is small, owning decode + error classification is a real component | — Pending |
+| RPC-02 split: spec owns guard evaluation; bridge owns error classification and protocol well-formedness; codec generated from one schema | The test process owns no semantics — anything it evaluates is a re-implementation of the spec, which is the exact failure the consumer's milestone exists to kill. Domain validation IS guard evaluation and must not migrate into the bridge disguised as validation. Only the transport layer can tell "the spec said no" from "the service died" | — Pending |
+| Generated Solidity artifact is a library returning a tagged struct | A sentinel collides with legitimate values the moment the spec can return one; a custom error makes spec-rejection indistinguishable from a genuine revert, forces try/catch, and destroys the guard identity the consumer's Phase 9 needs. Only the tagged struct carries the discriminant explicitly | — Pending |
+| The RPC result is one hex-encoded ABI blob, not a JSON object | Keeps the Solidity interface stable regardless of how `vm.rpc` surfaces results, and avoids leaning on `vm.parseJson` for anything load-bearing | — Pending |
+| The bridge is the single authority on the spec version; the consumer drops its direct `spec/` pin | One path beats two paths plus a checker. Agreed with the consumer's planning agent | — Pending |
+| `specCommit` is stamped at compile time and asserted by the consumer's test — mandatory regardless of topology | A pin describes the tree, not the process answering the test. A stale build, a cached artifact, or a leaked process on a persistent runner can all answer from a different commit than the pin claims. Compile-time stamping is the only version claim that cannot lie | — Pending |
+| The wiring probe collapses into the health method | One mechanism, no second thing to drift. Unreachable surfaces as transport-failure from the same call, so the consumer's Phase 1 skip predicate is the one Phase 7 keeps | — Pending |
 | **OPEN — `VolOrder(T)` wire format** | Shock-style tagged vs per-variant, owned by the consumer's Phase 4. The codec consumes their decision rather than anticipating it | — Pending |
 
 ---
