@@ -1,0 +1,11 @@
+.git
+.planning
+.stack-work
+**/.stack-work
+*.md
+# package.yaml is EXCLUDED deliberately: without this, `COPY . .` carries all
+# seven of them in and the image's own (different) hpack regenerates every
+# .cabal. The must-have "hpack never runs inside the image" is false otherwise,
+# and the criterion "no COPY line names package.yaml" passes vacuously because
+# `COPY . .` names nothing.
+**/package.yaml

@@ -442,3 +442,47 @@ byte-identical restoration, then re-run: `PASS`.
 Three layers, each verifying the one below: the guard catches violations; the negative test proves
 the guard fires; the meta-check proves the negative test can fail. Only the third makes the first
 two evidence rather than assertion.
+
+---
+
+## Container image (01-06) — MEASURED
+
+### `ldd` on the real binary, before deciding the runtime contents
+
+```
+libm.so.6  libgmp.so.10  libc.so.6  ld-linux-x86-64.so.2
+```
+
+No cairo, no pango. Binary is 1 078 320 bytes. Runtime stage is therefore
+`debian:bookworm-slim` + `libgmp10` + `ca-certificates` — decided from evidence, not from a list.
+
+**`ldd` does NOT cover locale.** `debian:bookworm-slim` ships none, GHC falls back to ASCII, and
+the first non-ASCII byte written dies with `commitBuffer: invalid argument`. Phase 1's ASCII
+`--version` would pass and the bug would surface in Phase 4-5 as a transport failure.
+`ENV LANG=C.UTF-8` added. Worth stating plainly: `ldd` tells you which shared libraries are needed,
+not everything that is needed.
+
+### Result
+
+| Fact | Value |
+|---|---|
+| Image size | **129 MB** |
+| Shipped binary runs | ✓ `evm-spec-bridge-transport 0.1.0.0` |
+| cairo/pango in runtime | **0** |
+| cairo/pango in builder base | **0** |
+| Build succeeded with NO cairo dev headers installed | ✓ |
+
+### What this does and does not establish
+
+**Does:** Phase 1's image needs no cairo. It builds only `evm-spec-bridge-transport`, which does not
+depend on `cfmm-adapter` and therefore never reaches `cfmm-vol-markets-spec` or its `plot`
+sublibrary.
+
+**Does NOT:** that consuming the spec needs no cairo. That is a different claim, and conflating the
+two is precisely the error made earlier today in `## Native deps`. A separate probe builds
+`evm-spec-bridge-cfmm-adapter` in a cairo-free container to answer it — see below.
+
+`.dockerignore` excludes `**/package.yaml` deliberately: without it, `COPY . .` carries all seven in
+and the image's own hpack regenerates every `.cabal`. The must-have "hpack never runs inside the
+image" is false without that line, and the criterion "no COPY line names package.yaml" passes
+vacuously because `COPY . .` names nothing.

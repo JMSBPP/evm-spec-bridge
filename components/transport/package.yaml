@@ -23,3 +23,14 @@ dependencies:
 
 library:
   source-dirs: src
+
+executables:
+  evm-spec-bridge:
+    main:        Main.hs
+    source-dirs: app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - evm-spec-bridge-transport
