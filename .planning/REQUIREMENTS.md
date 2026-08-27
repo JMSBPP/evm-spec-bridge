@@ -100,16 +100,80 @@ Deferred with explicit triggers, not vague intent.
 
 ## Traceability
 
-Populated during roadmap creation.
+Populated during roadmap creation (2026-08-27).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| — | — | — |
+| **PROTO-01** | Phase 3 | Pending |
+| **PROTO-02** | Phase 3 | Pending |
+| **PROTO-03** | Phase 3 | Pending |
+| **PROTO-04** | Phase 3 | Pending |
+| **PROTO-05** | Phase 4 | Pending |
+| **PROTO-06** | Phase 4 | Pending |
+| **PROTO-07** | Phase 3 | Pending |
+| **PROTO-08** | Phase 4 | Pending |
+| **PROTO-09** | Phase 4 | Pending |
+| **PROTO-10** | Phase 4 | Pending |
+| **SRV-01** | Phase 6 | Pending |
+| **SRV-02** | Phase 5 | Pending |
+| **SRV-03** | Phase 5 | Pending |
+| **SRV-04** | Phase 5 | Pending |
+| **SRV-05** | Phase 5 | Pending |
+| **SRV-06** | Phase 4 | Pending |
+| **SRV-07** | Phase 4 | Pending |
+| **SRV-08** | Phase 6 | Pending |
+| **SRV-09** | Phase 6 | Pending |
+| **GEN-01** | Phase 8 | Pending |
+| **GEN-02** | Phase 9 | Pending |
+| **GEN-03** | Phase 9 | Pending |
+| **GEN-04** | Phase 9 | Pending |
+| **GEN-05** | Phase 8 | Pending |
+| **GEN-06** | Phase 8 | Pending |
+| **GEN-07** | Phase 9 | Pending |
+| **INTEG-01** | Phase 7 | Pending |
+| **INTEG-02** | Phase 3 | Pending |
+| **INTEG-03** | Phase 9 | Pending |
+| **INTEG-04** | Phase 7 | Pending |
+| **INTEG-05** | Phase 9 | Pending |
+| **CFMM-01** | Phase 1 | Pending |
+| **CFMM-02** | Phase 11 | Pending |
+| **CFMM-03** | Phase 11 | Pending |
+| **CFMM-04** | Phase 11 | Pending |
+| **DIST-01** | Phase 10 | Pending |
+| **DIST-02** | Phase 7 | Pending |
+| **DIST-03** | Phase 1 | Pending |
+| **DIST-04** | Phase 1 | Pending |
+| **DIST-05** | Phase 7 | Pending |
+| **DIST-06** | Phase 2 | Pending |
 
 **Coverage:**
 - v1 requirements: 41 total
-- Mapped to phases: 0
-- Unmapped: 41 ⚠️
+- Mapped to phases: 41
+- Unmapped: 0 ✓
+- Duplicated across phases: 0 ✓
+
+**By phase:**
+
+| Phase | Requirements | Count |
+|-------|--------------|-------|
+| 1 — Repo Skeleton, Component Seams, CI Floor | CFMM-01, DIST-03, DIST-04 | 3 |
+| 2 — Transport Spike (Throwaway) | DIST-06 | 1 |
+| 3 — Three-Outcome Protocol Core and Hex-ABI Envelope | PROTO-01, PROTO-02, PROTO-03, PROTO-04, PROTO-07, INTEG-02 | 6 |
+| 4 — JSON-RPC Service Surface and Fault Taxonomy | PROTO-05, PROTO-06, PROTO-08, PROTO-09, PROTO-10, SRV-06, SRV-07 | 7 |
+| 5 — Warm Server Hardening | SRV-02, SRV-03, SRV-04, SRV-05 | 4 |
+| 6 — Harness Lifecycle and Ephemeral Endpoint | SRV-01, SRV-08, SRV-09 | 3 |
+| 7 — Spec Wiring, Staleness and Vacuity Guards | INTEG-01, INTEG-04, DIST-02, DIST-05 | 4 |
+| 8 — Method Registry and Generated Solidity Interface | GEN-01, GEN-05, GEN-06 | 3 |
+| 9 — Generated Call Path | GEN-02, GEN-03, GEN-04, GEN-07, INTEG-03, INTEG-05 | 6 |
+| 10 — Consumption Packaging and Integration | DIST-01 | 1 |
+| 11 — cfmm Adapter (externally blocked) | CFMM-02, CFMM-03, CFMM-04 | 3 |
+
+**Sequencing note.** CFMM-02 (and CFMM-03, which rides on it) are externally blocked on the
+consumer's Phase 4 `VolOrder(T)` wire-format decision and are deliberately sequenced last so the
+blocker stalls nothing. DIST-02 has a consumer-side half (dropping their direct `spec/` pin) that
+is coordination rather than a blocker — the bridge-side deliverable is the single-authority
+override recipe and coherence check in Phase 7.
 
 ---
 *Requirements defined: 2026-08-27*
+*Traceability populated: 2026-08-27*
