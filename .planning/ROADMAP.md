@@ -248,6 +248,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   applies to every phase). Plans are executed in conversation with heavy user intervention:
   decision points are surfaced rather than silently resolved, and reasoning is explained as the
   work happens. The phases are explicitly a learning exercise for the user, not only a deliverable.
+  Phase 1 commits directly to `develop` (the worktree-per-plan convention is suspended while
+  execution is inline — see 01-CONTEXT.md).
   Planners must therefore prefer many small tasks over few large ones, place explicit checkpoints
   wherever a non-obvious choice is made, and never bundle independent decisions into one task.
   `plan_checker` stays disabled — the user is the check.

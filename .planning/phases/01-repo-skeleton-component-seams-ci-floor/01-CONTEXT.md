@@ -102,7 +102,12 @@ boundaries unviolatable.
 
 - `d2p-finance/evm-spec-bridge` canonical, receives PRs only. `JMSBPP/evm-spec-bridge` is the
   fork; `develop` is the integration branch and the fork's default.
-- One git worktree per plan on a `feat/*` branch.
+- ~~One git worktree per plan on a `feat/*` branch.~~ **AMENDED 2026-08-27 at execution start:
+  Phase 1 commits directly to `develop` on the fork.** The worktree convention was inherited from
+  `cfmm-vol-markets`, where it isolates *background* agents. Execution here is inline and
+  conversational — the user sees every commit as it happens — so the isolation buys little and
+  costs a branch switch at every plan boundary. Revisit for later phases if execution stops being
+  inline.
 - Both repos exist and are wired; `develop` carries the planning history. Upstream `main` holds
   only its initialization commit.
 
