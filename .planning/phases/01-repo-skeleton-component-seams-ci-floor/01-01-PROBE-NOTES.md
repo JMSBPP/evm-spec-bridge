@@ -222,3 +222,54 @@ Local `pkg-config --modversion`, measured 2026-08-27:
 
 All three present on this host — which means the host CANNOT prove headers are unnecessary by
 their absence. The honest test is a container without them, deferred to the image build (01-06).
+
+---
+
+## Spec compile probe — MEASURED (01-01-T5)
+
+Two-point cold comparison. Same host, same snapshot, same package name both sides; only the
+core/plot split varies.
+
+**Conditions:** host (not container) · Arch Linux · 12 cores, `-j4` · GHC 9.10.3 (ghcup, on PATH,
+`system-ghc: true`) · Stack 3.11.1 · LTS 24.55 · scratch `STACK_ROOT` per variant (genuinely cold)
+· cairo 1.18.4 / pango 1.57.1 / glib 2.88.1 already present on the host.
+
+| Variant | Commit | exit | seconds | STACK_ROOT | pkgs | Chart built? |
+|---|---|---|---|---|---|---|
+| before split | `5d1fb16` | 0 | **301** | 229M | 56 | **YES** |
+| after split | `f2736e0` | 0 | **281** | 229M | 56 | **YES** |
+
+Exit statuses captured via `set -o pipefail`, not read off a transcript.
+
+### Result: the split delivers ~nothing to a git `extra-deps` consumer
+
+`comm` on the two package sets differs only by the probe project's own name. Identical
+`STACK_ROOT` size. 20 s = 6.6%, within cold-build noise.
+
+**Cause: for a source dependency, Stack builds ALL components of the package — including internal
+sublibraries.** Our probe depends only on the core library, yet `Chart-1.9.5` and
+`Chart-cairo-1.9.4.1` were configured, compiled and registered, along with `lens` (85 modules),
+`gtk2hs-buildtools`, `colour`, `data-default`, `operational`, `StateVar`, `old-locale`.
+
+The split is still correct and would pay off for a consumer resolving the package from a package
+database (Hackage/Stackage), where only the public library is installed. It is specifically the
+**git-source-dependency path** that defeats it — which is the path this bridge uses.
+
+### RETRACTION — the "provisioning cost is ZERO" claim in `## Native deps` above is WRONG
+
+That section concluded a plot-free consumer "needs no cairo/pango including dev headers" and that
+`libcairo2-dev` should be dropped from CI and the Dockerfile. The measurement refutes it:
+`gtk2hs-buildtools` and `Chart-cairo` were built here, and they need cairo dev headers. The build
+succeeded only because this host already has them — exactly the confound that section flagged
+("the host CANNOT prove headers are unnecessary by their absence") and then failed to respect.
+
+**Do NOT remove `libcairo2-dev libpango1.0-dev libglib2.0-dev pkg-config` from 01-06/01-07.**
+Second time in one session that a conclusion about this dependency was drawn from evidence that
+could not support it. The honest test remains a container without the headers — deferred to 01-06,
+and now it is a real test rather than a formality.
+
+### Open question this raises for the roadmap
+
+If Chart compiles regardless via the source-dep path, the ~5-minute cold cost is unavoidable while
+we consume the spec by git commit. Alternatives worth weighing later (NOT Phase 1): vendoring only
+the modules needed, or consuming a published package rather than a git ref. Recorded, not acted on.
