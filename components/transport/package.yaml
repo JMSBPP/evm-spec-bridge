@@ -1,0 +1,25 @@
+name:        evm-spec-bridge-transport
+version:     0.1.0.0
+synopsis:    Loopback HTTP server carrying the oracle
+license:     BSD-3-Clause
+author:      JMSBPP
+maintainer:  juan.serranotmf@gmail.com
+copyright:   2026 JMSBPP
+
+# Mirrors the spec repo's flag set so both trees fail on the same things.
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src

@@ -1,0 +1,30 @@
+name:        evm-spec-bridge-cfmm-adapter
+version:     0.1.0.0
+synopsis:    The ONLY component permitted to depend on the cfmm spec (CFMM-01)
+license:     BSD-3-Clause
+author:      JMSBPP
+maintainer:  juan.serranotmf@gmail.com
+copyright:   2026 JMSBPP
+
+# Mirrors the spec repo's flag set so both trees fail on the same things.
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+# CFMM-01: this stanza is the seam. No core component may carry
+# `cfmm-vol-markets-spec`; stack-core.yaml omits both this package and the
+# spec extra-dep, so a core package acquiring this edge fails to RESOLVE.
+dependencies:
+- base >= 4.7 && < 5
+- evm-spec-bridge-protocol
+- cfmm-vol-markets-spec
+
+library:
+  source-dirs: src

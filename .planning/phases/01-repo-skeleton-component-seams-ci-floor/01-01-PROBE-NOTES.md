@@ -339,3 +339,35 @@ Headroom check: 87 GB free against a measured 229 MB Stack root plus a GHC bindi
 self-hosted case is where disk and leaked state actually bite, and that is Phase 10's problem.
 
 Throwaway branch and workflow deleted locally and remotely after recording.
+
+---
+
+## Naming convention
+
+Fixed in `01-02-T2`, before any file existed. One rule, applied seven times.
+
+- Directory: `components/<kebab-name>/`
+- Package: `evm-spec-bridge-<kebab-name>`
+- Library source dir: `src`
+- Module: `Bridge.<PascalName>`
+- Generated cabal: `components/<kebab-name>/evm-spec-bridge-<kebab-name>.cabal`, **committed**
+
+| dir | package | module |
+|---|---|---|
+| `protocol` | `evm-spec-bridge-protocol` | `Bridge.Protocol` |
+| `abi-codec` | `evm-spec-bridge-abi-codec` | `Bridge.AbiCodec` |
+| `jsonrpc` | `evm-spec-bridge-jsonrpc` | `Bridge.JsonRpc` |
+| `registry` | `evm-spec-bridge-registry` | `Bridge.Registry` |
+| `transport` | `evm-spec-bridge-transport` | `Bridge.Transport` |
+| `codegen` | `evm-spec-bridge-codegen` | `Bridge.Codegen` |
+| `cfmm-adapter` | `evm-spec-bridge-cfmm-adapter` | `Bridge.CfmmAdapter` |
+
+**D2 decision: `seven-packages`.** Not a preference — `internal-libraries:` was ruled out because
+the enclosing *package* carries an internal library's `build-depends`, so the spec-less config
+would fail for the whole package regardless of which library owned the edge. The guard would be
+permanently red and carry zero information. Stack 3.11.1 also cannot name an internal library as a
+build target (`[S-8506]`).
+
+**Anti-vacuity in the adapter.** `Bridge.CfmmAdapter` imports `Panoptic.NId (fourLegNumLegs)` and
+uses it. A declared-but-unused dependency is one the toolchain could drop, which would let the
+seam guard's positive control pass for the wrong reason.
