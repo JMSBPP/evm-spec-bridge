@@ -52,7 +52,7 @@
 
 ### cfmm Adapter
 
-- [ ] **CFMM-01**: `cfmm-adapter` is a separate cabal component, and no core component `build-depends` on `cfmm-vol-markets-spec`
+- [ ] **CFMM-01**: `cfmm-adapter` is a separate component, and no core component `build-depends` on the spec package `cfmm-scratchpad` — enforced by a build that fails if that edge is added
 - [ ] **CFMM-02**: The adapter decodes the `VolOrder(T)` wire format into the spec's own types without modifying the spec's model
 - [ ] **CFMM-03**: `spec_volOrderToTokenId` answers for an arbitrary `(VolOrder(T), poolId)` with `poolId` passed through untouched as a 64-bit value — masking and tickSpacing separation stay inside the spec
 - [ ] **CFMM-04**: Guard-violating inputs return a typed rejection naming the guard, never a crash

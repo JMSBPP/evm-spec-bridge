@@ -131,9 +131,19 @@ their decision rather than anticipating it.
 
 - **Tech stack**: Haskell (library + JSON-RPC server executable) — the spec is Haskell and
   the bridge links it as a dependency, so a same-language boundary avoids a third build.
-- **Dependencies**: depends on `d2p-finance/cfmm-vol-markets-spec`. The consumer therefore
-  reaches that spec by two paths (its own `spec/` submodule and transitively through the
-  bridge) — a topology that needs confirming against its build.
+- **Build system is Stack + hpack, not plain cabal**, because the spec is
+  (`stack.yaml`, `stack.yaml.lock`, `package.yaml`, with `cfmm-scratchpad.cabal` generated).
+  `package.yaml` is the source of truth and the `.cabal` is a generated artifact, so it needs
+  the same staleness gate as the generated Solidity.
+- **The Stackage snapshot must match the spec's exactly** — currently LTS 24.55, pinned by
+  URL. The snapshot pins GHC, so the compiler version is inherited rather than chosen. Two
+  snapshots would mean two GHCs and the spec compiled twice differently — the skew problem
+  in a new form.
+- **Dependencies**: depends on `d2p-finance/cfmm-vol-markets-spec` (package
+  `cfmm-scratchpad`) through a Stack `extra-deps` git entry pinned to a commit — not a
+  submodule. This makes DIST-02's single-authority claim one greppable line in `stack.yaml`,
+  with `stack.yaml.lock` recording the resolved hash, and gives INTEG-01's compile-time stamp
+  something exact to read.
 - **Compatibility**: must be reachable from Foundry's `vm.rpc(alias, method, params)`, which
   constrains the protocol to JSON-RPC methods Foundry can forward.
 - **Distribution**: `d2p-finance/evm-spec-bridge` canonical, `JMSBPP/evm-spec-bridge` fork,
@@ -173,8 +183,10 @@ their decision rather than anticipating it.
   consumer pins nothing today and its runner uses whatever `forge` is on the box.
 - **Hosted CI has been blocked by GitHub billing** elsewhere in this ecosystem
   (`tao-plank-vault`). The chosen gate strategy assumes hosted runners work.
-- **GHC/cabal on the consumer's self-hosted runner is unverified.** Confirmed on the dev
-  machine (GHC 9.10.3, cabal 3.16.1.0), not on the runner. A long-lived service is strictly
+- **The Haskell toolchain on the consumer's self-hosted runner is unverified.** Stack 3.11.1
+  confirmed on the dev machine; nothing confirmed on the runner. Note the spec's package-level
+  dependencies include `Chart-cairo`, so the library — not just the plotting executable — drags
+  cairo/pango system headers onto any machine that builds it, this bridge's CI included. A long-lived service is strictly
   more demanding than a binary: the runner must build *and run* a Haskell process, with
   service-ready/test-start races, port collisions and teardown. Choosing hosted CI here
   defers this rather than retiring it.
@@ -233,6 +245,7 @@ their decision rather than anticipating it.
 | RPC-02 split: spec owns guard evaluation; bridge owns error classification and protocol well-formedness; codec generated from one schema | The test process owns no semantics — anything it evaluates is a re-implementation of the spec, which is the exact failure the consumer's milestone exists to kill. Domain validation IS guard evaluation and must not migrate into the bridge disguised as validation. Only the transport layer can tell "the spec said no" from "the service died" | — Pending |
 | Generated Solidity artifact is a library returning a tagged struct | A sentinel collides with legitimate values the moment the spec can return one; a custom error makes spec-rejection indistinguishable from a genuine revert, forces try/catch, and destroys the guard identity the consumer's Phase 9 needs. Only the tagged struct carries the discriminant explicitly | — Pending |
 | The RPC result is one hex-encoded ABI blob, not a JSON object | Keeps the Solidity interface stable regardless of how `vm.rpc` surfaces results, and avoids leaning on `vm.parseJson` for anything load-bearing | — Pending |
+| Build with Stack + hpack on the spec's own Stackage snapshot | The spec is a Stack project; matching its toolchain dominates any preference about dependency resolution. The earlier cabal recommendation rested on `jsonrpc`/`servant-jsonrpc` being absent from Stackage — moot, since the envelope is hand-rolled and every remaining dependency is in the snapshot | — Pending |
 | The bridge is the single authority on the spec version; the consumer drops its direct `spec/` pin | One path beats two paths plus a checker. Agreed with the consumer's planning agent | — Pending |
 | `specCommit` is stamped at compile time and asserted by the consumer's test — mandatory regardless of topology | A pin describes the tree, not the process answering the test. A stale build, a cached artifact, or a leaked process on a persistent runner can all answer from a different commit than the pin claims. Compile-time stamping is the only version claim that cannot lie | — Pending |
 | The wiring probe collapses into the health method | One mechanism, no second thing to drift. Unreachable surfaces as transport-failure from the same call, so the consumer's Phase 1 skip predicate is the one Phase 7 keeps | — Pending |

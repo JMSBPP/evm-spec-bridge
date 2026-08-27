@@ -27,7 +27,7 @@ deliberate: it is what makes the pressure to guess evaporate.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Repo Skeleton, Component Seams, CI Floor** - Cabal component boundaries (including the untouched cfmm seam) build green on hosted CI, reachable only by PR from the fork
+- [ ] **Phase 1: Repo Skeleton, Component Seams, CI Floor** - Stack component boundaries (including the untouched cfmm seam) build green on hosted CI, reachable only by PR from the fork
 - [ ] **Phase 2: Transport Spike (Throwaway)** - A green `forge test` proves `vm.rpc` reaches a Haskell service against the consumer's exact pinned Foundry version
 - [ ] **Phase 3: Three-Outcome Protocol Core and Hex-ABI Envelope** - Success, rejection and transport failure become distinguishable by construction, byte-exact through Foundry's coercion
 - [ ] **Phase 4: JSON-RPC Service Surface and Fault Taxonomy** - A strict, pure, namespaced method surface with fixture methods that exercise all three outcomes with zero domain code
@@ -47,9 +47,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: CFMM-01, DIST-03, DIST-04
 **Success Criteria** (what must be TRUE):
   1. A push opens a PR from `JMSBPP/evm-spec-bridge` to `d2p-finance/evm-spec-bridge` and CI runs on it; a direct push to the canonical repo is not the path any change takes
-  2. CI builds every cabal component that exists and fails the run if any does not compile, with actual cold and warm build times recorded (all current estimates are unmeasured)
+  2. CI builds every component that exists and fails the run if any does not compile, with actual cold and warm build times recorded (all current estimates are unmeasured). The Stackage snapshot matches the spec's (LTS 24.55), and the hpack-generated `.cabal` is gated against `package.yaml` drift the same way the generated Solidity is
   3. A `cfmm-adapter` component stanza exists and no core component `build-depends` on `cfmm-vol-markets-spec` — verified by a build that fails if that edge is added
-  4. A throwaway probe job has answered whether GHC/cabal can build *and run* a trivial Haskell binary on the consumer's self-hosted runner, and the answer is recorded as evidence rather than assumption
+  4. A throwaway probe job has answered whether Stack/GHC can build *and run* a trivial Haskell binary on the consumer's self-hosted runner — including whether the cairo/pango system headers the spec's `Chart-cairo` dependency requires are present — and the answer is recorded as evidence rather than assumption
 **Plans**: TBD
 
 ### Phase 2: Transport Spike (Throwaway)
@@ -214,7 +214,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 - **External blockers are pushed last.** Phases 1-10 are independent of the consumer's open
   `VolOrder(T)` decision. That is a large, valuable slice, and building it is what makes the
   pressure to guess through the blocker evaporate.
-- **The domain seam is created in Phase 1 and not exercised until Phase 11.** One cabal component
+- **The domain seam is created in Phase 1 and not exercised until Phase 11.** One component
   boundary, enforced by the compiler. That is the entire "generalize later" investment.
 
 ## Governing Decisions Applied
