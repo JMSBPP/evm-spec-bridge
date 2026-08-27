@@ -1,0 +1,13 @@
+{
+  "mode": "interactive",
+  "granularity": "fine",
+  "parallelization": false,
+  "commit_docs": true,
+  "model_profile": "inherit",
+  "workflow": {
+    "research": true,
+    "plan_check": false,
+    "verifier": true,
+    "nyquist_validation": true
+  }
+}
