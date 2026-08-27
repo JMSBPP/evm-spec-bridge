@@ -169,3 +169,56 @@ They asked for two things so the number is comparable:
 
 Two-point comparison available on the canonical repo, package name identical on both sides, only
 the split varying: **before `5d1fb16`** vs **after `f2736e0`**.
+
+---
+
+## Native deps
+
+### The task's premise no longer holds — recorded, not repeated
+
+`01-01-T4` instructs pointing out that cairo is a **package-level** dependency "so the library
+inherits it — meaning anything that links the spec library needs these headers". **That was true at
+`93fe3acf`. It is false at our pin `f2736e0`.** Executing the task as written would have taught a
+fact that stopped being true two hours earlier — the same stale-rationale failure just corrected
+upstream.
+
+Verified at `f2736e0`, from the spec's own `package.yaml`:
+
+```yaml
+# Package-level deps are the PURE numeric core only.  Chart/Chart-cairo/colour
+# drag in cairo/pango.  Downstream consumers (e.g. evm-spec-bridge, ...)
+internal-libraries:
+  plot:
+    source-dirs: plot
+    dependencies: [cfmm-vol-markets-spec, Chart, Chart-cairo, colour]
+```
+
+Chart/Chart-cairo/colour appear ONLY in the `plot` internal library and the executable. This
+bridge depends on the core library only, so it is a **plot-free consumer**.
+
+### Consequence: our cairo provisioning cost is ZERO
+
+A plot-free consumer needs no cairo/pango **including dev headers**. Anything building the `plot`
+sublibrary — the spec's exe or test suite — still does; that is not us.
+
+**Therefore `libcairo2-dev libpango1.0-dev libglib2.0-dev` should be REMOVED from this project's
+CI workflow (01-07) and Dockerfile (01-06).** Both currently install them, inherited from research
+written against the old pin. Confirm empirically in Task 5: a clean build of the core library must
+succeed with those headers absent.
+
+### Name sets, recorded for completeness
+
+- **Debian/CI/Docker (what the SPEC's own CI installs, still correct for anything building `plot`):**
+  `libcairo2-dev libpango1.0-dev libglib2.0-dev pkg-config`
+- **Arch (this host)**: `cairo pango glib2 pkgconf`
+
+Local `pkg-config --modversion`, measured 2026-08-27:
+
+| Library | Version |
+|---|---|
+| cairo | 1.18.4 |
+| pango | 1.57.1 |
+| glib-2.0 | 2.88.1 |
+
+All three present on this host — which means the host CANNOT prove headers are unnecessary by
+their absence. The honest test is a container without them, deferred to the image build (01-06).
