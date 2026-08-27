@@ -167,11 +167,10 @@ their decision rather than anticipating it.
 
 **Risks carried, not resolved:**
 
-- **`try`/`catch` on a cheatcode is the lowest-confidence remaining assumption.** The
-  three-outcome distinction depends on converting a cheatcode revert into a value. Whether
-  Solidity `try`/`catch` works against the cheatcode address (`extcodesize`) is unverified;
-  the low-level `address(vm).call` form sidesteps it. This is the first thing the transport
-  spike must prove.
+- **All measured findings are scoped to `forge 1.5.1-stable` (`b0a9dd9`).** Four now rest on
+  that pin: the value-dependent JSON coercion, the `vm.rpc` return encoding, `${...}`
+  interpolation laziness, and cheatcode `try`/`catch`. DIST-06 pins Foundry here; the
+  consumer pins nothing today and its runner uses whatever `forge` is on the box.
 - **Hosted CI has been blocked by GitHub billing** elsewhere in this ecosystem
   (`tao-plank-vault`). The chosen gate strategy assumes hosted runners work.
 - **GHC/cabal on the consumer's self-hosted runner is unverified.** Confirmed on the dev
@@ -188,6 +187,21 @@ their decision rather than anticipating it.
   three-outcome struct exist specifically to convert these into hard reds.
 
 **Resolved since initialization:**
+
+- **Solidity `try`/`catch` DOES catch a cheatcode-originated revert — measured, not inferred.**
+  `vm.rpc` pointed at a dead port on `forge 1.5.1-stable`: the `catch` branch fires, the
+  errdata carries selector `CheatcodeError(string)` = `0xeeaa9e6f`, and the string body
+  decodes non-empty. The revert data returned non-empty *with the cheatcode's own selector*,
+  which rules out a caller-side `extcodesize` failure (that would yield empty data) — so the
+  result is conclusive rather than merely consistent. The low-level `address(vm).call` form
+  also works and stays the conservative default, since it assumes nothing about codesize
+  behaviour surviving a Foundry bump. This retires what was the lowest-confidence assumption
+  in the design and shrinks the Phase 2 spike.
+- **`${...}` interpolation in `[rpc_endpoints]` resolves at alias USE, not at config load —
+  measured.** `forge config --json` returns the value uninterpolated, `forge build` succeeds
+  and unrelated tests pass with the variable unset; only a test that touches the alias fails,
+  with `vm.rpc: environment variable EVM_SPEC_BRIDGE_URL not found`. So SRV-09's alias cannot
+  break an unrelated suite, and a missing endpoint names itself.
 
 - **`vm.rpc` arbitrary-method forwarding is VERIFIED from Foundry source.** `rpc_result`
   builds a provider and calls `raw_request` with no allowlist, no `eth_*` filter and no node
