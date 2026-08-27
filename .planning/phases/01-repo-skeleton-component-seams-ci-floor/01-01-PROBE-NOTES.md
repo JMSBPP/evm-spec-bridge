@@ -605,3 +605,56 @@ is `haskell-actions/setup` — a cost BOTH jobs pay. The guard itself is sub-sec
 the job saves the 302 s build, not the 106 s setup, so the honest claim is "fails before the
 expensive build" rather than "fails in seconds". D9's rationale holds, but for a smaller margin
 than the 0.34 s figure implied.
+
+---
+
+## Upstream two-package spike — CLEAN BUILD, measured
+
+Built `evm-spec-bridge-cfmm-adapter` in `haskell:9.10.3-bookworm` with **no cairo/pango dev
+headers**, against the upstream spike commit `c528f60` using `subdirs: [core]`.
+
+```
+exit=0
+Compiling Bridge.CfmmAdapter
+Registering library for evm-spec-bridge-cfmm-adapter
+SPIKE_SECONDS=144
+```
+
+| | current pin `f2736e0` (internal sublibrary) | spike `c528f60` (two packages) |
+|---|---|---|
+| external packages built | **56** | **1** (`cfmm-vol-markets-spec`) |
+| Chart / Chart-cairo / gtk2hs / lens | present | **absent** |
+| cairo dev headers required | **YES** — build fails without | **NO** — built without them |
+| adapter compiled | n/a (died on cairo first) | **yes** |
+| wall clock | 281 s host / 302 s CI | **144 s container** |
+
+### What is and is not comparable
+
+**Solid:** the package count (56 → 1) and the cairo requirement (required → not required). Both are
+categorical, measured in the same container image, and immune to machine noise.
+
+**Not a controlled comparison:** the 144 s is a container build of one target; the 281 s/302 s
+baselines are a host build and a CI build of a different target set. Same order of magnitude, but
+do not quote "144 vs 302" as a speedup — the environments differ. The package count is the honest
+headline.
+
+### Consequence for this project
+
+If upstream restructures canonically, **Phase 11's adapter build stops needing cairo entirely** and
+the `libcairo2-dev libpango1.0-dev libglib2.0-dev pkg-config` apt step added in 01-07 can be
+removed. Until then it stays — measured as required at our current pin.
+
+Nothing here is adopted: `c528f60` is an unmerged local branch on someone else's repo. Our pin
+remains `f2736e0`.
+
+### Two more instrument failures while producing this number
+
+- Run 1 died with `unknown flag: --progress` (legacy builder). Greps reported "cairo matches: 0" and
+  "adapter not compiled" — indistinguishable from a clean cairo-free success. Caught only by reading
+  the exit code first.
+- Run 2 died with `/bin/sh: set: Illegal option -o pipefail` — Docker `RUN` uses dash. `pipefail`
+  was the fix for this session's FIRST blocker, and adding it here broke the build. Fixed with
+  `SHELL ["/bin/bash", "-o", "pipefail", "-c"]`.
+
+Both would have read as clean results from the greps alone. **Exit code before greps** is now the
+standing rule in this phase.
