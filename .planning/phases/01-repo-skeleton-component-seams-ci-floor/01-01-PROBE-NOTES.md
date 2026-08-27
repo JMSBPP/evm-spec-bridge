@@ -658,3 +658,41 @@ remains `f2736e0`.
 
 Both would have read as clean results from the greps alone. **Exit code before greps** is now the
 standing rule in this phase.
+
+---
+
+## DIST-03 acceptance evidence
+
+Branch protection applied to `d2p-finance/evm-spec-bridge:main` and **read back** rather than
+trusted:
+
+```json
+{"contexts":["seam","build","image"],"enforce_admins":true,"pr_required":true,"strict":true}
+```
+
+All three gate jobs are required. Requiring only `build` would have left CFMM-01 (the seam) and
+DIST-04 (the image) advisory — a PR with a red seam job would still merge.
+
+`enforce_admins: true` matters here specifically: without it the rule does not bind the person most
+able to bypass it, which is the only person likely to.
+
+### The refusal — this IS the evidence, not a side effect
+
+```
+remote: - Changes must be made through a pull request.
+remote: - 3 of 3 required status checks are expected.
+ ! [remote rejected] develop -> main (protected branch hook declined)
+exit=1
+```
+
+`upstream/main` commit count before: **1**. After: **1**. Nothing landed.
+
+Run behind a hard precondition asserting `enforce_admins.enabled == true` AND a non-empty
+`required_status_checks.contexts` first. Without that gate, a silently-failed protection PUT would
+have made this push **succeed**, landing 20 commits of planning history directly on canonical —
+the exact violation the task exists to prove impossible. "If it succeeds, stop" is too late: by
+then it has happened, and undoing it requires a second forbidden push.
+
+The `-F` vs `-f` distinction was load-bearing in the PUT: `-f` sends strings, and
+`required_approving_review_count=0` as a string 422s. Both were flagged in review and both were
+real.
