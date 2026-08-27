@@ -30,3 +30,29 @@ let the two repos drift onto different snapshot revisions silently.
 **Why this matters downstream:** `ghc-9.10.3` now determines the CI `ghc-version:` input and the
 Docker builder base tag (`haskell:9.10.3-bookworm`). Three places, one source of truth — they
 cannot disagree without this line changing.
+
+---
+
+## Spec pin
+
+Read live 2026-08-27 during `01-01-T2`.
+
+- commit: `93fe3acfd2aa13dd28b54d5d44022dc9c10b6341`
+- package: `cfmm-scratchpad` version `0.1.0.0`
+- branch: `main`
+- **repository pinned: `https://github.com/d2p-finance/cfmm-vol-markets-spec.git` (CANONICAL)**
+
+Matches the SHA RESEARCH.md recorded — the spec has not moved since research.
+
+### Deviation from the plan text, and why
+
+`01-01-T2` as written checks the FORK, `https://github.com/JMSBPP/cfmm-vol-markets-spec.git`, and
+its acceptance criterion names that URL. Both remotes were queried and both are at
+`93fe3acf…` today, so the choice costs nothing right now — but **the pin goes to canonical**,
+because PROJECT.md makes `d2p-finance/cfmm-vol-markets-spec` the dependency and because a
+published container image must not depend on an unreviewed fork. If the fork later runs ahead of
+canonical, pinning the fork would silently ship un-merged spec code inside our artifact.
+
+Both URLs recorded here so downstream greps resolve either way:
+- canonical (PINNED): `https://github.com/d2p-finance/cfmm-vol-markets-spec.git`
+- fork (reference only): `https://github.com/JMSBPP/cfmm-vol-markets-spec.git`
