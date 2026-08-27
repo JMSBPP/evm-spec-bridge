@@ -1,0 +1,28 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.39.6.
+--
+-- see: https://github.com/sol/hpack
+
+name:           evm-spec-bridge-abi-codec
+version:        0.1.0.0
+synopsis:       Hex and ABI encoding for the tagged result envelope
+author:         JMSBPP
+maintainer:     juan.serranotmf@gmail.com
+copyright:      2026 JMSBPP
+license:        BSD-3-Clause
+build-type:     Simple
+
+library
+  exposed-modules:
+      Bridge.AbiCodec
+  other-modules:
+      Paths_evm_spec_bridge_abi_codec
+  autogen-modules:
+      Paths_evm_spec_bridge_abi_codec
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010

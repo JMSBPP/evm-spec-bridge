@@ -371,3 +371,41 @@ build target (`[S-8506]`).
 **Anti-vacuity in the adapter.** `Bridge.CfmmAdapter` imports `Panoptic.NId (fourLegNumLegs)` and
 uses it. A declared-but-unused dependency is one the toolchain could drop, which would let the
 seam guard's positive control pass for the wrong reason.
+
+---
+
+## Seam guard — MEASURED both directions (01-03)
+
+`stack --stack-yaml stack-core.yaml build --dry-run`
+
+| Case | Tree state | exit | time |
+|---|---|---|---|
+| positive control (clean) | warm | 0 | **303–326 ms** |
+| negative (protocol gains the spec) | warm | **1** | **302 ms** |
+| negative (protocol gains the spec) | **cold scratch copy** | 1 | **118 818 ms** |
+
+The guard fires and names all three things needed to act on it:
+
+```
+In the dependencies for evm-spec-bridge-protocol-0.1.0.0:
+  * cfmm-vol-markets-spec needed, but no version is in the Stack configuration
+    ... or an omission from the packages list in .../stack-core.yaml
+The above is/are needed since evm-spec-bridge-protocol is a build target.
+```
+
+### The cold number is a finding, not noise — it changes the CI argument
+
+RESEARCH.md measured **0.34 s** and 01-07's D9 rationale ("three jobs; fail-fast on the cheap one")
+rests on it. That figure is a **warm** measurement. Reproduced here at 303 ms warm — but a cold tree
+with no `.stack-work` and no hpack output takes **119 s**, a 350× difference.
+
+**Every CI run starts from a fresh checkout.** So the seam job is only cheap if `.stack-work` is
+restored from cache; otherwise it costs two minutes and is no longer meaningfully "fail-fast"
+relative to the build job it precedes.
+
+**Action for 01-07:** the cache step must be restored BEFORE the seam job (or the seam job must
+carry its own cache restore), and D9's teaching must state warm-vs-cold rather than quoting 0.34 s
+unqualified. Do not repeat the bare number — it is true only under a condition CI does not start in.
+
+This is the same shape as the day's other corrections: a real measurement, taken under conditions
+that differ from where it will be applied, generalised without stating the condition.

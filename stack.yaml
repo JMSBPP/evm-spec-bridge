@@ -1,0 +1,30 @@
+# Full project configuration: all seven components, spec available.
+#
+# The GHC version is NOT chosen here — it is inherited from the snapshot below
+# (resolver.compiler: ghc-9.10.3). The URL form is used rather than `lts-24.55`
+# shorthand because cfmm-vol-markets-spec pins this exact URL; shorthand would
+# let the two trees drift onto different snapshot revisions silently.
+snapshot:
+  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/24/55.yaml
+  sha256: 1c2140555bdf61c30a893b3ec1033987d01eda75ce82a1dda033e8fb6f8b322c
+  size: 732456
+
+packages:
+- components/protocol
+- components/abi-codec
+- components/jsonrpc
+- components/registry
+- components/transport
+- components/codegen
+- components/cfmm-adapter
+
+# The spec, pinned by commit on the CANONICAL repo (not the fork): a published
+# artifact must not depend on unreviewed code. `stack.yaml.lock` records this
+# commit plus a pantry-tree sha256, which is why hashFiles over both files is a
+# complete CI cache key.
+extra-deps:
+- git: https://github.com/d2p-finance/cfmm-vol-markets-spec.git
+  commit: f2736e058cfde1a03708f34772bfc2bb47c55cf6
+
+system-ghc: true
+install-ghc: false
