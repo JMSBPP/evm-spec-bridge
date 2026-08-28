@@ -1,0 +1,33 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.39.6.
+--
+-- see: https://github.com/sol/hpack
+
+name:           spike-stub-server
+version:        0.1.0.0
+synopsis:       THROWAWAY hardcoded JSON-RPC-shaped responder for the Phase 2 transport spike
+author:         JMSBPP
+maintainer:     juan.serranotmf@gmail.com
+copyright:      2026 JMSBPP
+license:        BSD-3-Clause
+build-type:     Simple
+
+executable stub-server
+  main-is: Main.hs
+  other-modules:
+      Paths_spike_stub_server
+  autogen-modules:
+      Paths_spike_stub_server
+  hs-source-dirs:
+      app
+  ghc-options: -Wall
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , http-types
+    , text
+    , wai
+    , warp
+  default-language: Haskell2010

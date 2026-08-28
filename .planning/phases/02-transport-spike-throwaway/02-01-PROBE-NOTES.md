@@ -265,3 +265,98 @@ exit=1                                   <- not ignored
 $ git diff --exit-code stack.yaml stack-core.yaml .github/workflows/ci.yml; echo "exit=$?"
 exit=0                                   <- root project untouched
 ```
+
+---
+
+## 02-02-T3 — the stub: hardcoded payload, echoed id, loopback bind, required port
+
+`spike/stub-server/app/Main.hs`, 56 lines. Four properties, each with a reason:
+
+**1. The payload is EVEN-nibble.** It was generated mechanically rather than typed, precisely
+because a hand-typed run of zeros is where an odd nibble count comes from:
+
+```
+$ printf '%064x' 42
+000000000000000000000000000000000000000000000000000000000000002a
+$ echo -n "$(printf '%064x' 42)" | wc -c
+64
+```
+
+64 hex characters after `0x` -- even, all `[0-9a-f]`, integer value 42, one 32-byte EVM word. An
+odd count is not valid hex and falls into a different `json_value_to_token` coercion branch
+(PITFALLS.md:82), which would invalidate the whole spike without necessarily turning the test red
+in an obvious way. NOTE: the payload literal written out in the 02-02 plan's `<action>` block is
+60 zeros + `2a` = 62 characters, NOT 64. The plan's own instruction to "count it, do not assume"
+caught its own example. The committed value is the 64-character one.
+
+**2. Bound to 127.0.0.1 and nothing else.**
+
+```
+$ grep -c '0\.0\.0\.0' spike/stub-server/app/Main.hs
+0
+$ ss -ltn | grep 8547
+LISTEN 0      4096       127.0.0.1:8547       0.0.0.0:*
+```
+
+The `0.0.0.0:*` on the right is the PEER-address column (any remote may connect); the local bind
+address is `127.0.0.1:8547`, which is what alloy's `guess_local_url` requires in order to apply
+`no_proxy`. This is the check curl cannot make: a wrong bind still answers curl on localhost
+perfectly while also being reachable from the network.
+
+**3. Port is required; there is no default.**
+
+```
+$ stack --stack-yaml spike/stack.yaml run stub-server
+usage: stub-server PORT   (PORT is required; there is no default)
+exit=1
+```
+
+**4. The id is echoed.** alloy correlates a response to its request by id.
+
+```
+$ curl -sS -i -X POST http://127.0.0.1:8547 -H 'content-type: application/json' \
+    -d '{"jsonrpc":"2.0","id":7,"method":"spec_health","params":[]}'
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Date: Fri, 28 Aug 2026 13:28:04 GMT
+Server: Warp/3.4.9
+Content-Type: application/json
+
+{"jsonrpc":"2.0","id":7,"result":"0x000000000000000000000000000000000000000000000000000000000000002a"}
+```
+
+`"id":7`, not 1 -- so the echo is real and not the fallback accidentally agreeing. The fallback was
+exercised separately: a body with no `"id"`, and a body that is not JSON at all, both return
+`"id":1`.
+
+Request log on the stub's stdout (this is what makes a red `forge test` in 02-03 diagnosable):
+
+```
+[stub] listening on 127.0.0.1:8547
+[stub] path="/" body-bytes=59 echoed-id=7
+```
+
+After the process was stopped, `ss -ltn | grep 8547` returned nothing (exit 1) -- port released.
+
+**Build:** `stack --stack-yaml spike/stack.yaml build` exits 0. `-Wall` produced NO warnings for
+`Main` -- the compile went `[1 of 2] Compiling Main` straight to `[2 of 2] Compiling
+Paths_spike_stub_server` with nothing between. The warnings visible in the build output are all
+`-Wdeprecations` from inside the `warp-3.4.9` dependency's own modules, not from our source.
+
+### Finding: the spike is NOT entirely invisible to the root gates
+
+`scripts/hpack-drift.sh` ends with `git status --porcelain -- '*.cabal'`, and that glob is
+REPO-WIDE. The freshly generated `spike/stub-server/spike-stub-server.cabal` therefore turned
+`just drift` red as an untracked generated artifact:
+
+```
+$ ./scripts/hpack-drift.sh
+ERROR: untracked or unstaged .cabal files -- generated artifacts must be committed
+?? spike/stub-server/spike-stub-server.cabal
+drift exit=1
+```
+
+Resolved by committing it, which is the repo's stated policy for generated .cabal files anyway. It
+lives inside `spike/`, so 02-05's deletion is still `rm -rf spike/` -- but the claim "the spike is
+invisible to the root project" is now precisely: invisible to `stack build`, `stack-core.yaml` and
+`ci.yml`, NOT invisible to the repo-wide `*.cabal` glob in the drift gate.
