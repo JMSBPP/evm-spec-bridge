@@ -9,13 +9,13 @@
 
 ### Protocol
 
-- [ ] **PROTO-01**: The result is a Haskell sum type — success, rejection with guard, transport failure — with no partial function able to produce one outcome from another
-- [ ] **PROTO-02** **[M]**: Spec rejection travels inside the JSON-RPC `result` as a tagged value; the `error` field is reserved for protocol and transport faults. *Measured: a JSON-RPC error object, HTTP 500, connection refusal and timeout all revert with the identical selector `CheatcodeError(string)` = `0xeeaa9e6f`, differing only in unstable English text*
-- [ ] **PROTO-03** **[M]**: Every response result is a single even-length `0x` hex string carrying a tag byte plus a bridge-owned ABI encoding. *Measured: `vm.rpc` coerces JSON results value-dependently — the same record decoded as `tuple(string,string,string)` for `tokenId:"0"` and `tuple(string,string,uint256)` for `tokenId:"18446744073709551616"`; objects reorder alphabetically by key; `null` becomes 32 zero bytes*
-- [ ] **PROTO-04**: All numeric and byte quantities are hex strings; JSON numbers are never used for domain values
+- [x] **PROTO-01**: The result is a Haskell sum type — success, rejection with guard, transport failure — with no partial function able to produce one outcome from another
+- [x] **PROTO-02** **[M]**: Spec rejection travels inside the JSON-RPC `result` as a tagged value; the `error` field is reserved for protocol and transport faults. *Measured: a JSON-RPC error object, HTTP 500, connection refusal and timeout all revert with the identical selector `CheatcodeError(string)` = `0xeeaa9e6f`, differing only in unstable English text*
+- [x] **PROTO-03** **[M]**: Every response result is a single even-length `0x` hex string carrying a tag byte plus a bridge-owned ABI encoding. *Measured: `vm.rpc` coerces JSON results value-dependently — the same record decoded as `tuple(string,string,string)` for `tokenId:"0"` and `tuple(string,string,uint256)` for `tokenId:"18446744073709551616"`; objects reorder alphabetically by key; `null` becomes 32 zero bytes*
+- [x] **PROTO-04**: All numeric and byte quantities are hex strings; JSON numbers are never used for domain values
 - [ ] **PROTO-05**: Decoding is strict — unknown fields, out-of-range values and non-canonical encodings are typed protocol faults, never silently defaulted
 - [ ] **PROTO-06**: Every method is namespaced `spec_*`; any other method returns JSON-RPC `-32601`
-- [ ] **PROTO-07**: Every response carries a `protocolVersion` field
+- [x] **PROTO-07**: Every response carries a `protocolVersion` field
 - [ ] **PROTO-08**: Protocol faults carry stable numeric error codes, not free text
 - [ ] **PROTO-09**: The JSON-RPC `id` is echoed; notifications and unexpected batch shapes are rejected
 - [ ] **PROTO-10**: Handlers are pure — a response is a function of the request alone, with no cross-request state. A tested, documented invariant, not an accident of the implementation
@@ -45,7 +45,7 @@
 ### Integrity
 
 - [ ] **INTEG-01**: The spec commit SHA is stamped into the binary at compile time and returned by `spec_health`, so the version claim describes the process answering rather than the tree on disk
-- [ ] **INTEG-02**: Rejections carry a closed, enumerated guard identity — never a free-text string consumers would begin matching on
+- [x] **INTEG-02**: Rejections carry a closed, enumerated guard identity — never a free-text string consumers would begin matching on
 - [ ] **INTEG-03**: The response echoes a canonical digest of the decoded request, verified by the generated decoder, closing the misrouting and stale-response class a warm shared process makes possible
 - [ ] **INTEG-04**: `spec_runStats` reports call counts and outcome tallies, so a run in which the oracle never succeeded fails loudly instead of passing silently
 - [ ] **INTEG-05**: Transport failure always fails the consumer's test — the bridge ships no skip or degrade path
@@ -104,13 +104,13 @@ Populated during roadmap creation (2026-08-27).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| **PROTO-01** | Phase 3 | Pending |
-| **PROTO-02** | Phase 3 | Pending |
-| **PROTO-03** | Phase 3 | Pending |
-| **PROTO-04** | Phase 3 | Pending |
+| **PROTO-01** | Phase 3 | Met — 03-01 sum type; 03-07 requireOutcome |
+| **PROTO-02** | Phase 3 | Met — 03-04 outcomeResponse; 03-05 discrimination |
+| **PROTO-03** | Phase 3 | Met — 03-03 envelope; 03-06 boundary sweep |
+| **PROTO-04** | Phase 3 | Met — 03-02 Hex0x + hex-only-guard |
 | **PROTO-05** | Phase 4 | Pending |
 | **PROTO-06** | Phase 4 | Pending |
-| **PROTO-07** | Phase 3 | Pending |
+| **PROTO-07** | Phase 3 | Met — 03-03 version property; 03-07 version-sweep |
 | **PROTO-08** | Phase 4 | Pending |
 | **PROTO-09** | Phase 4 | Pending |
 | **PROTO-10** | Phase 4 | Pending |
@@ -131,7 +131,7 @@ Populated during roadmap creation (2026-08-27).
 | **GEN-06** | Phase 8 | Pending |
 | **GEN-07** | Phase 9 | Pending |
 | **INTEG-01** | Phase 7 | Pending |
-| **INTEG-02** | Phase 3 | Pending |
+| **INTEG-02** | Phase 3 | Partial — guard enum + no guard text in JSON (03-04/03-05); cfmm-adapter exhaustive match not executed this phase |
 | **INTEG-03** | Phase 9 | Pending |
 | **INTEG-04** | Phase 7 | Pending |
 | **INTEG-05** | Phase 9 | Pending |
