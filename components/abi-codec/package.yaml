@@ -20,6 +20,11 @@ ghc-options:
 
 dependencies:
 - base >= 4.7 && < 5
+- aeson
+- bytestring
+- text
+- base16-bytestring
+- evm-spec-bridge-protocol
 # Data.Solidity.Abi.Codec -- the ABI encoder for the hex envelope (03-03).
 # Snapshot-resident in LTS 24.55 at 1.1.0.0, so NO extra-deps entry is needed.
 # NOT `web3`: that is a meta-package pulling web3-ethereum, web3-provider AND

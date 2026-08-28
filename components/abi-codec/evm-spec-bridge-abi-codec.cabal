@@ -16,6 +16,7 @@ build-type:     Simple
 library
   exposed-modules:
       Bridge.AbiCodec
+      Bridge.AbiCodec.Hex
   other-modules:
       Paths_evm_spec_bridge_abi_codec
   autogen-modules:
@@ -24,6 +25,11 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , base16-bytestring
+    , bytestring
+    , evm-spec-bridge-protocol
+    , text
     , web3-solidity
   default-language: Haskell2010
