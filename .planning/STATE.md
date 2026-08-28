@@ -63,6 +63,8 @@ None yet.
 - **OPEN (Phase 2)**: whether alloy enforces a response `Content-Type` (`ARCHITECTURE.md:612`, LOW confidence). The last unverified transport item; probed as a three-row matrix.
 - **DEFERRED to Phase 6**: `guess_local_url`/`HTTP_PROXY` trap is `[S]` source-derived, never measured — the same provenance that produced the `vm.rpcJson` error.
 - **RETIRED (Phase 1)**: hosted-CI billing risk — hosted Actions execute; run `33125024351` green, 87 GB free.
+- **OPEN (Phase 1 gap, found 2026-08-28)**: `just` is NOT installed on this box, so every `just`-based acceptance criterion in Phase 1 was unverifiable and unflagged. `01-06-PLAN.md:480/:485` required `image` and `image-run` recipes that the `justfile` does not contain. CI does not depend on `just` (its two `ci.yml` mentions are prose in comments), so no gate is red — but the criteria were never met. Not fixed inside Phase 2.
+- **RULE (from 02-01-T6)**: every `gh` command in this repo must pass `--repo JMSBPP/evm-spec-bridge`. Bare `gh` resolves to canonical `d2p-finance`, which has no runs by design, and returns `[]` — indistinguishable from "CI did not run".
 - **RETIRED (Phase 1)**: GHC-on-a-runner risk — cold hosted build 302 s; image builds and publishes.
 - **Carried tension (D6)**: hosted-only CI is structurally incapable of detecting the zombie-process / port-collision class that will bite the consumer's persistent self-hosted runner. Probed in Phase 1, resolved in Phase 10.
 

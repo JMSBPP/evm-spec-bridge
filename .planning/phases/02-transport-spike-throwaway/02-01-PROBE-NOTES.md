@@ -160,3 +160,75 @@ the instrument was *absent* rather than *mis-scoped*.
 
 **Not fixed here.** Adding the missing `image`/`image-run` recipes and installing `just` is Phase 1
 gap-closure, deliberately not smuggled into Phase 2. Recorded in STATE.md blockers.
+
+---
+
+## 02-01-T6 — CI green, and the pin costs nothing
+
+Run `33171542201` on `JMSBPP/evm-spec-bridge@develop`, commit `aed92a1`. **All three jobs success.**
+
+| Job | Conclusion | Duration | Phase 1 baseline |
+|---|---|---|---|
+| seam | success | **145 s** | 125 s |
+| build | success | **427 s** | 440 s |
+| image | success | **56 s** | — |
+
+### Step-level, seam job — the +20 s is NOT the pin
+
+| # | Step | Duration |
+|---|---|---|
+| 2 | `actions/checkout@v5` | 2 s |
+| **3** | **Foundry pin well-formedness (DIST-06)** | **0 s** |
+| 4 | `haskell-actions/setup@v2` | **117 s** |
+| 6 | Restore Stack cache BEFORE the guard | 11 s |
+| 7 | Seam guard (CFMM-01) | 1 s |
+| 8 | Prove the guard fires | 2 s |
+
+The pin step is **0 s**, as predicted — it reads one small file and does no I/O beyond that. The
+seam job's rise from the 125 s Phase 1 baseline is `haskell-actions/setup` taking 117 s this run
+against 106 s previously: **runner variance in a step both jobs already paid for**, not a cost the
+pin introduced. Recorded this way rather than as "seam got slower", because the job-level number
+alone would have supported that wrong conclusion.
+
+The pin step runs 3rd, immediately after checkout — so a malformed pin fails before the 117 s
+toolchain setup is spent.
+
+---
+
+## Instrument failure #11 — `gh run list` returned `[]` for the wrong repo
+
+While verifying T6, `gh run list --branch develop` returned an empty array. That reads as
+"CI did not run".
+
+It was not. `gh repo view` resolves this checkout to **`d2p-finance/evm-spec-bridge`** — the
+CANONICAL repo — while the push went to `origin`, the **fork** `JMSBPP/evm-spec-bridge`. Canonical
+has no Actions runs because, by DIST-03's design, nothing is ever pushed to it directly.
+
+```
+$ gh repo view --json nameWithOwner -q .nameWithOwner
+d2p-finance/evm-spec-bridge          <- NOT where we pushed
+
+$ git remote -v
+origin    https://github.com/JMSBPP/evm-spec-bridge.git      (push)
+upstream  https://github.com/d2p-finance/evm-spec-bridge.git (push)
+```
+
+`gh run list --repo JMSBPP/evm-spec-bridge` immediately showed the run.
+
+**This is the same shape as Phase 1's `gh api` 404**, which meant a missing OAuth scope and read as
+a missing package. Both are cases where a tool answered a DIFFERENT question than the one asked and
+returned something indistinguishable from a substantive negative. There an authorization artefact
+wore the costume of an existence claim; here a repo-resolution artefact wore the costume of
+"no CI ran".
+
+**Rule, carried forward:** in this repo every `gh` invocation must pass `--repo
+JMSBPP/evm-spec-bridge` explicitly. The fork/canonical split that DIST-03 exists to enforce is
+exactly what makes bare `gh` commands ambiguous here.
+
+---
+
+## 02-01 — plan complete
+
+DIST-06's mechanism exists and has been observed to fail. Surviving artifacts:
+`.github/foundry-version`, `scripts/foundry-pin.sh`, one `justfile` recipe, one CI step.
+Everything else in Phase 2 is throwaway.
