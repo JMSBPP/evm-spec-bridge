@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.5
+milestone_name: milestone
+status: Ready to discuss
+stopped_at: Phase 3 context gathered
+last_updated: "2026-08-28T15:11:31.406Z"
+last_activity: 2026-08-28 — Phase 2 complete (5/5). `vm.rpc` reaches a Haskell warp server, measured. Content-Type not enforced; hex envelope byte-exact on both the 20-byte and 32-byte branches
+progress:
+  total_phases: 11
+  completed_phases: 2
+  total_plans: 14
+  completed_plans: 16
+  percent: 18
+---
+
 # Project State
 
 ## Project Reference
@@ -74,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-08-28
-Stopped at: Phase 2 complete (405a57f); spike deleted, pin survives, all gates green
-Resume file: .planning/phases/02-transport-spike-throwaway/02-SUMMARY.md
+Last session: 2026-08-28T15:11:31.403Z
+Stopped at: Phase 3 context gathered
+Resume file: .planning/phases/03-three-outcome-protocol-core-and-hex-abi-envelope/03-CONTEXT.md
