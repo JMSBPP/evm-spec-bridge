@@ -144,7 +144,7 @@ Populated during roadmap creation (2026-08-27).
 | **DIST-03** | Phase 1 | **Met** — direct push to canonical refused by branch protection; `main` unchanged (01-09) |
 | **DIST-04** | Phase 1 | **Partial** — gate on push+PR builds all components + image, publishes to GHCR (01-07/01-08). Generated Solidity not yet in the gate; completes in Phase 8 |
 | **DIST-05** | Phase 7 | Pending |
-| **DIST-06** | Phase 2 | In progress |
+| **DIST-06** | Phase 2 | **Partial** — the *enforceable* half is MET: `.github/foundry-version` mirrors the consumer's byte-for-byte and `scripts/foundry-pin.sh` was OBSERVED failing two distinguishable ways (02-01-T4); CI asserts well-formedness at 0 s cost. The *"published as part of the integration contract"* half is NOT met — the consumer maintains their own pin and consumes nothing of ours. Completes at Phase 10. |
 
 **Coverage:**
 - v1 requirements: 41 total

@@ -172,6 +172,52 @@ An exchange that produced findings neither session had alone.
 - Brief written to `/tmp/claude-1000/evm-spec-bridge-notes.md`, every claim tagged
   MEASURED / SOURCE / DESIGN-not-built / UNVERIFIED.
 
+## The deletion, and what testing the claim found
+
+02-02-T1 claimed the isolated-project layout would make deletion **"`rm -rf spike/` and nothing
+else"**. 02-05-T2 existed to test that claim rather than assume it. It was **falsified twice**, in
+increasing order of sharpness:
+
+**1. `git rm -r spike/` is not the deletion.** It removes *tracked* files and leaves every
+gitignored build artifact behind. After `git rm -r`, `spike/` was **still on disk at 46 MB**:
+
+```
+spike/.stack-work/            spike/stub-server/.stack-work/
+spike/forge/out/              spike/forge/cache/
+```
+
+`git status` showed `?? spike/` — the directory persisting as untracked. Both `git rm -r` (for the
+reviewable diff) **and** `rm -rf` (for the artifacts) were required.
+
+**2. The drift gate went RED on the staged deletion.** `scripts/hpack-drift.sh` exit 1:
+
+```
+ERROR: untracked or unstaged .cabal files -- generated artifacts must be committed
+D  spike/stub-server/spike-stub-server.cabal
+```
+
+A `D ` entry is a **staged deletion** — neither untracked nor unstaged. The gate's condition is
+`[ -n "$(git status --porcelain -- '*.cabal')" ]`, which fires on *any* .cabal state change; its
+message describes a narrower condition than the one it detects. Transient — green immediately after
+commit — and not worth changing, but the message would mislead anyone who hit it cold.
+
+**Verified after the deletion commit (`405a57f`):**
+
+| check | exit |
+|---|---|
+| `stack build` | 0 |
+| `scripts/seam-guard.sh` | 0 |
+| `scripts/hpack-drift.sh` | 0 |
+| **`scripts/foundry-pin.sh`** | **0 — the pin survived** |
+| pin still byte-identical to the consumer's | IDENTICAL |
+| `just --list \| grep -c spike` | 0 recipes remaining |
+| residue outside `.planning/` | none |
+
+**The isolation claim was directionally right and literally wrong.** The spike genuinely never
+touched `stack.yaml`, `stack-core.yaml`, the components, or `ci.yml` — the deletion diff is nine
+file deletions plus one `justfile` edit and nothing else. But "deletion is one command" was not
+true, and the only reason we know is that a task was written to check it.
+
 ## What this phase did NOT prove
 
 - **One host, one OS, one observation per row.** Nothing about the consumer's runner, proxies, or

@@ -28,7 +28,7 @@ deliberate: it is what makes the pressure to guess evaporate.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Repo Skeleton, Component Seams, CI Floor** - Seven Stack components build green on hosted CI with the cfmm seam enforced by a spec-less config, and a minimal container image publishes to GHCR
-- [ ] **Phase 2: Transport Spike (Throwaway)** - A green `forge test` proves `warp` can serve Foundry's alloy client on the consumer's pinned Foundry version, and the toolchain is pinned in a form that can fail
+- [x] **Phase 2: Transport Spike (Throwaway)** - A green `forge test` proves `warp` can serve Foundry's alloy client on the consumer's pinned Foundry version, and the toolchain is pinned in a form that can fail
 - [ ] **Phase 3: Three-Outcome Protocol Core and Hex-ABI Envelope** - Success, rejection and transport failure become distinguishable by construction, byte-exact through Foundry's coercion
 - [ ] **Phase 4: JSON-RPC Service Surface and Fault Taxonomy** - A strict, pure, namespaced method surface with fixture methods that exercise all three outcomes with zero domain code
 - [ ] **Phase 5: Warm Server Hardening** - One warm process survives a full parallel fuzz run without leaking, wedging, or filing a spec bug as a transport failure
@@ -119,11 +119,11 @@ below with their disposition, because deleting them would erase the record of wh
 
 **Plans**: 5 plans (sequential — execution is INLINE with the user, `parallelization: false`,
 background agents forbidden)
-- [ ] 02-01-PLAN.md — The Foundry pin: `.github/foundry-version`, the assertion that can go red, and a negative test that makes it fire
-- [ ] 02-02-PLAN.md — The throwaway warp stub, as a self-contained Stack project so deletion is `rm -rf spike/`
-- [ ] 02-03-PLAN.md — Minimal forge project and the first green `vm.rpc` test — plus proof the green is not vacuous
-- [ ] 02-04-PLAN.md — Content-Type matrix (json / text-plain / absent) and the byte-exact hex-envelope round-trip
-- [ ] 02-05-PLAN.md — Summary, delete the spike, and update ROADMAP/REQUIREMENTS/STATE in this plan
+- [x] 02-01-PLAN.md — The Foundry pin: `.github/foundry-version`, the assertion that can go red, and a negative test that makes it fire
+- [x] 02-02-PLAN.md — The throwaway warp stub, as a self-contained Stack project so deletion is `rm -rf spike/`
+- [x] 02-03-PLAN.md — Minimal forge project and the first green `vm.rpc` test — plus proof the green is not vacuous
+- [x] 02-04-PLAN.md — Content-Type matrix (json / text-plain / absent) and the byte-exact hex-envelope round-trip
+- [x] 02-05-PLAN.md — Summary, delete the spike, and update ROADMAP/REQUIREMENTS/STATE in this plan
 
 **Note**: The consumer's pin is confirmed at `.github/foundry-version` (their CI-05, commit
 `dddb26b`): `FOUNDRY_VERSION=v1.5.1`, `FOUNDRY_COMMIT=b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2`.
@@ -250,8 +250,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Repo Skeleton, Component Seams, CI Floor | 9/9 | Complete | 2026-08-28 |
-| 2. Transport Spike (Throwaway) | 0/5 | Planned | - |
-| 3. Three-Outcome Protocol Core and Hex-ABI Envelope | 0/TBD | Not started | - |
+| 2. Transport Spike (Throwaway) | 5/5 | Complete | 2026-08-28 |
+| 3. Three-Outcome Protocol Core and Hex-ABI Envelope | 0/TBD | In progress | - |
 | 4. JSON-RPC Service Surface and Fault Taxonomy | 0/TBD | Not started | - |
 | 5. Warm Server Hardening | 0/TBD | Not started | - |
 | 6. Harness Lifecycle and Ephemeral Endpoint | 0/TBD | Not started | - |
