@@ -52,7 +52,7 @@
 
 ### cfmm Adapter
 
-- [ ] **CFMM-01**: `cfmm-adapter` is a separate component, and no core component `build-depends` on the spec package `cfmm-scratchpad` — enforced by a build that fails if that edge is added
+- [x] **CFMM-01**: `cfmm-adapter` is a separate component, and no core component `build-depends` on the spec package `cfmm-vol-markets-spec` — enforced by a build that fails if that edge is added
 - [ ] **CFMM-02**: The adapter decodes the `VolOrder(T)` wire format into the spec's own types without modifying the spec's model
 - [ ] **CFMM-03**: `spec_volOrderToTokenId` answers for an arbitrary `(VolOrder(T), poolId)` with `poolId` passed through untouched as a 64-bit value — masking and tickSpacing separation stay inside the spec
 - [ ] **CFMM-04**: Guard-violating inputs return a typed rejection naming the guard, never a crash
@@ -61,7 +61,7 @@
 
 - [ ] **DIST-01**: The bridge is consumable by the consumer as a published container image (pinned by tag/digest) for the oracle, plus a git submodule pin of this repo for the generated Solidity — so the consumer needs no Haskell toolchain
 - [ ] **DIST-02**: The bridge is the single authority on the spec version; the consumer drops its direct `spec/` pin
-- [ ] **DIST-03**: Changes reach `d2p-finance/evm-spec-bridge` only via PR from the `JMSBPP` fork
+- [x] **DIST-03**: Changes reach `d2p-finance/evm-spec-bridge` only via PR from the `JMSBPP` fork
 - [ ] **DIST-04**: An own CI gate on hosted runners, triggered on push AND pull request, builds every component, the server, the generated Solidity, and the container image, and publishes the image to GHCR
 - [ ] **DIST-05**: A lifecycle lane deliberately leaks a server and starts a second, asserting the spec-SHA and ephemeral-port guards actually fire — since hosted runners are ephemeral and cannot produce that condition naturally
 - [ ] **DIST-06**: This repo pins an exact Foundry version, published as part of the integration contract, so every measured transport finding is scoped to something enforceable
@@ -135,16 +135,16 @@ Populated during roadmap creation (2026-08-27).
 | **INTEG-03** | Phase 9 | Pending |
 | **INTEG-04** | Phase 7 | Pending |
 | **INTEG-05** | Phase 9 | Pending |
-| **CFMM-01** | Phase 1 | Pending |
+| **CFMM-01** | Phase 1 | **Met** — `[S-4804]` fires and names the offender; negative test + meta-check verified (01-04) |
 | **CFMM-02** | Phase 11 | Pending |
 | **CFMM-03** | Phase 11 | Pending |
 | **CFMM-04** | Phase 11 | Pending |
 | **DIST-01** | Phase 10 | Pending |
 | **DIST-02** | Phase 7 | Pending |
-| **DIST-03** | Phase 1 | Pending |
-| **DIST-04** | Phase 1 | Pending |
+| **DIST-03** | Phase 1 | **Met** — direct push to canonical refused by branch protection; `main` unchanged (01-09) |
+| **DIST-04** | Phase 1 | **Partial** — gate on push+PR builds all components + image, publishes to GHCR (01-07/01-08). Generated Solidity not yet in the gate; completes in Phase 8 |
 | **DIST-05** | Phase 7 | Pending |
-| **DIST-06** | Phase 2 | Pending |
+| **DIST-06** | Phase 2 | In progress |
 
 **Coverage:**
 - v1 requirements: 41 total
