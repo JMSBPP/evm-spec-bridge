@@ -235,3 +235,50 @@ written anyway.
 config, or an assertion on emitted output. Where a grep genuinely is the right instrument, anchor it
 to syntax that cannot appear in prose (`'^name ='`, not `'^name'`) — and **never write a criterion
 whose only failure mode is someone mentioning the thing.**
+
+---
+
+## PROTO-04 — type-level evidence (03-02)
+
+Evidence form (1): compile-fail check `scripts/hex-only-guard.sh`, CONTROL / NEGATIVE / CONTRAST
+pattern matching `scripts/seam-negative-test.sh`. GHC 9.10.3 diagnostics verbatim:
+
+**NEGATIVE** (`compile-fail/RawConstructor.hs`):
+
+```
+components/abi-codec/compile-fail/RawConstructor.hs:8:15: error: [GHC-01928]
+    • Illegal term-level use of the type constructor ‘Hex0x’
+    • imported from ‘Bridge.AbiCodec.Hex’ at ...
+    • In the first argument of ‘print’, namely
+        ‘(Hex0x (BS.pack [0x01]))’
+```
+
+**CONTRAST** (`compile-fail/NumberBody.hs`):
+
+```
+components/abi-codec/compile-fail/NumberBody.hs:9:11: error: [GHC-39999]
+    • No instance for ‘Num Hex0x’ arising from the literal ‘42’
+    • In the expression: 42 :: Hex0x
+```
+
+The two failures are distinguishable: NEGATIVE names unexported constructor use; CONTRAST names
+missing `Num` instance. CONTRAST output does NOT contain `Illegal term-level use of the type
+constructor`.
+
+Evidence form (2): `Bridge/AbiCodec/Hex.hs:29` defines `newtype Hex0x = Hex0x BS.ByteString` with
+constructor NOT in export list (`Hex0x` without `(..)` at line 8). `Bridge/AbiCodec/Hex.hs:78-80`
+defines the sole `instance Aeson.ToJSON Hex0x`. Repo-wide `grep -rn 'instance.*ToJSON' components/`
+returns exactly 1 match — no other wire-rendering path exists today.
+
+**Component choice:** `abi-codec`, not `protocol`. 03-01-T3 requires `Bridge/Protocol.hs` import
+nothing from `Data.Aeson`; a `ToJSON` in `protocol` would break that criterion.
+
+**Property test deliberately NOT written:** `PITFALLS.md:171` recommends a property test asserting
+the encoder never emits `null`. That test would be vacuous once the field type is `Hex0x` — every
+generated input is already a `Hex0x`, so every case passes regardless of encoder correctness.
+Superseded by ROADMAP Phase 3 criterion 2 amendment (2026-08-28): structural unrepresentability
+replaces the property test.
+
+**Residual gap:** the guard covers `Hex0x` only. A future module defining its own `ToJSON` for a
+different wire type would not be caught by this guard. The repo-wide instance count of 1 is the
+canary — any second instance is a review trigger.
