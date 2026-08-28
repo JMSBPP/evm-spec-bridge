@@ -250,7 +250,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Repo Skeleton, Component Seams, CI Floor | 9/9 | Complete | 2026-08-28 |
-| 2. Transport Spike (Throwaway) | 0/TBD | In progress | - |
+| 2. Transport Spike (Throwaway) | 0/5 | Planned | - |
 | 3. Three-Outcome Protocol Core and Hex-ABI Envelope | 0/TBD | Not started | - |
 | 4. JSON-RPC Service Surface and Fault Taxonomy | 0/TBD | Not started | - |
 | 5. Warm Server Hardening | 0/TBD | Not started | - |

@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-08-27)
 ## Current Position
 
 Phase: 2 of 11 (Transport Spike — Throwaway)
-Plan: 0 of TBD in current phase
+Plan: 0 of 5 in current phase
 Status: Planned — 5 plans, ready to execute
 Last activity: 2026-08-28 — Phase 2 planned (5 plans, 26 tasks); criterion 3 corrected to match what each side can assert
 
