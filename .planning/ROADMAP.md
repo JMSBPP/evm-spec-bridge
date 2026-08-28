@@ -315,8 +315,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   `plan_checker` stays disabled — the user is the check.
   **STRENGTHENED at Phase 2 (2026-08-28):** every decision must carry a **reference pointer** — a
   `file:line`, a source URL, or a measurement, never recall. **Background agents are
-  forbidden by default and permitted only on EXPLICIT user approval, for MECHANICAL tasks only**
-  (amended 2026-08-28); every `checkpoint:*` task stays inline with the user regardless. Teaching
+  forbidden by default and permitted only on EXPLICIT user approval, for MECHANICAL tasks —
+  including authoring code chunks** (amended 2026-08-28); every `checkpoint:*` task stays inline
+  with the user regardless, because delegation moves the typing and never the consent. Teaching
   is reported at PLAN BOUNDARIES rather than at each decision — batching applies to explanation,
   not to consent. **The
   executing skill owns execution AND the STATE.md / ROADMAP.md update, inline** — added because

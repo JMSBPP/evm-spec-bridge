@@ -35,9 +35,10 @@ fourth names a file that cannot satisfy it. ROADMAP Phase 2 is amended alongside
   Not "it is known that" and not recall.
 - **User checkpoints between decisions.** Ask in between; do not present a finished wall of work.
 - **Background agents: forbidden by default, permitted on EXPLICIT user approval** (amended
-  2026-08-28 mid-execution). When approved, delegation is limited to **mechanical tasks** — writing
-  files, wiring CI, running builds. Every `checkpoint:decision` and `checkpoint:human-verify` task
-  stays inline with the user regardless of approval.
+  2026-08-28 mid-execution). When approved, delegation covers **mechanical tasks — including
+  authoring code chunks** (the Haskell stub, the Solidity test), not merely config files, CI wiring
+  and builds. Every `checkpoint:decision` and `checkpoint:human-verify` task stays inline with the
+  user regardless of approval: delegation moves the typing, never the consent.
 - **The executing skill owns execution AND the STATE.md / ROADMAP.md update**, inline. This exists
   because Phase 1's ledger was never updated — ROADMAP read `0/9` and STATE said "Ready to plan"
   while nine plans sat committed; it was patched by hand afterwards in `41eb40c`.
