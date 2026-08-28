@@ -71,8 +71,8 @@ absent, not as the wrong version.
 
 `justfile` recipe `foundry-pin` -> `./scripts/foundry-pin.sh` (full local assertion, no flag).
 `.github/workflows/ci.yml` seam job -> `./scripts/foundry-pin.sh --check-format`, placed as the
-FIRST runnable step (line 40, immediately after `actions/checkout@v5`), well before the cache
-restore at line 57. One script, two callers, identical path.
+FIRST runnable step (line 42, immediately after `actions/checkout@v5` at line 29), well before the
+cache restore at line 57. One script, two callers, identical path.
 
 `grep -ci 'foundryup\|foundry-toolchain' .github/workflows/ci.yml` -> `0`. No Foundry install step
 was added to CI, by design.
