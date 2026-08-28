@@ -282,3 +282,32 @@ replaces the property test.
 **Residual gap:** the guard covers `Hex0x` only. A future module defining its own `ToJSON` for a
 different wire type would not be caught by this guard. The repo-wide instance count of 1 is the
 canary — any second instance is a review trigger.
+
+---
+
+## Golden vector (03-03-T4)
+
+**Input:** `SpecRejection GuardStrikeOutOfRange` (guard `fromEnum` = 3, tag `0x02`, body = `abi.encode(uint8 3)`).
+
+**Exact output (one line):**
+
+```
+0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003
+```
+
+| Metric | Value |
+|---|---|
+| Decoded byte length | 160 |
+| Hex nibble count (after `0x`) | 320 |
+
+| Word | Expected | Actual | Match |
+|---|---|---|---|
+| 0 | `0x0001` (protocolVersion = 1) | `0x0000000000000000000000000000000000000000000000000000000000000001` | yes |
+| 1 | `0x02` (tag rejection) | `0x0000000000000000000000000000000000000000000000000000000000000002` | yes |
+| 2 | offset `0x60` (96) | `0x0000000000000000000000000000000000000000000000000000000000000060` | yes |
+| 3 | body length `0x20` (32) | `0x0000000000000000000000000000000000000000000000000000000000000020` | yes |
+| 4 | body `abi.encode(uint8 3)` | `0x0000000000000000000000000000000000000000000000000000000000000003` | yes |
+
+**Conditions:** `web3-solidity-1.1.0.0` (LTS 24.55 snapshot), GHC 9.10.3, measured 2026-08-28.
+
+**Human checkpoint (03-03-T5):** User approved via execute-phase orchestrator. Confirmed: word 0 is version, word 1 low byte is tag `0x02`, dynamic `bytes body` starts at word 4; odd-nibble hex falls off the bytes branch onto value-dependent string coercion (`PITFALLS.md:78` left-pads silently); tag `0x00` reserved because JSON `null` arrives as 32 zero bytes with `success == true` (`PITFALLS.md:164`); `web3-solidity` is third-party code and a named suspect if boundary cases fail in 03-06.

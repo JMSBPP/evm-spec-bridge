@@ -22,6 +22,7 @@ dependencies:
 - base >= 4.7 && < 5
 - aeson
 - bytestring
+- memory
 - text
 - base16-bytestring
 - evm-spec-bridge-protocol
@@ -36,3 +37,23 @@ dependencies:
 
 library:
   source-dirs: src
+
+tests:
+  abi-codec-test:
+    main:        Main.hs
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - evm-spec-bridge-abi-codec
+    - evm-spec-bridge-protocol
+    - tasty
+    - tasty-hunit
+    - tasty-quickcheck
+    - bytestring
+    - text
+    - QuickCheck
+    - web3-solidity
+    - memory

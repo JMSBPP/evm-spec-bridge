@@ -16,6 +16,7 @@ build-type:     Simple
 library
   exposed-modules:
       Bridge.AbiCodec
+      Bridge.AbiCodec.Envelope
       Bridge.AbiCodec.Hex
   other-modules:
       Paths_evm_spec_bridge_abi_codec
@@ -30,6 +31,33 @@ library
     , base16-bytestring
     , bytestring
     , evm-spec-bridge-protocol
+    , memory
+    , text
+    , web3-solidity
+  default-language: Haskell2010
+
+test-suite abi-codec-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_evm_spec_bridge_abi_codec
+  autogen-modules:
+      Paths_evm_spec_bridge_abi_codec
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QuickCheck
+    , aeson
+    , base >=4.7 && <5
+    , base16-bytestring
+    , bytestring
+    , evm-spec-bridge-abi-codec
+    , evm-spec-bridge-protocol
+    , memory
+    , tasty
+    , tasty-hunit
+    , tasty-quickcheck
     , text
     , web3-solidity
   default-language: Haskell2010

@@ -7,8 +7,16 @@ module Bridge.AbiCodec
   , hexOfText
   , hexText
   , hexBytes
+  , EnvelopeError (..)
+  , encodeEnvelope
+  , decodeEnvelope
+  , tagSuccess
+  , tagRejection
+  , tagFault
+  , tagOf
   ) where
 
+import Bridge.AbiCodec.Envelope
 import Bridge.AbiCodec.Hex
 
 componentName :: String
