@@ -14,6 +14,11 @@ seam:
 seam-negative:
     ./scripts/seam-negative-test.sh
 
+# PROTO-04. The type-level analogue of seam-negative: proves a JSON number and a raw
+# construction both FAIL TO COMPILE, in two distinguishable ways.
+hex-only:
+    ./scripts/hex-only-guard.sh
+
 build:
     stack build --system-ghc --no-install-ghc --test --no-run-tests --pedantic
 
