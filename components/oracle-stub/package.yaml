@@ -19,20 +19,9 @@ ghc-options:
 
 dependencies:
 - base >= 4.7 && < 5
-- warp
-- wai
-- aeson
-- bytestring
-- http-types
 - optparse-applicative
-- text
-- scientific
-- json-rpc
-- vector
-- evm-spec-bridge-protocol
-- evm-spec-bridge-abi-codec
-- evm-spec-bridge-jsonrpc
-- web3-solidity
+- evm-spec-bridge-registry
+- evm-spec-bridge-transport
 
 executables:
   oracle-stub:

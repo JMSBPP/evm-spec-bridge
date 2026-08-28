@@ -23,19 +23,8 @@ executable oracle-stub
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      aeson
-    , base >=4.7 && <5
-    , bytestring
-    , evm-spec-bridge-abi-codec
-    , evm-spec-bridge-jsonrpc
-    , evm-spec-bridge-protocol
-    , http-types
-    , json-rpc
+      base >=4.7 && <5
+    , evm-spec-bridge-registry
+    , evm-spec-bridge-transport
     , optparse-applicative
-    , scientific
-    , text
-    , vector
-    , wai
-    , warp
-    , web3-solidity
   default-language: Haskell2010

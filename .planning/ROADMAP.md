@@ -198,8 +198,17 @@ background agents permitted on approval for mechanical work incl. code, checkpoi
   3. An unknown or non-`spec_*` method returns JSON-RPC `-32601`, and an unknown field, out-of-range value or non-canonical encoding returns a typed fault with a stable numeric code — never a silently defaulted value
   4. The `id` is echoed on every response, and a notification or unexpected batch shape is rejected rather than answered
   5. The same request issued twice returns the same bytes, with no cross-request state — a documented, tested invariant
+  6. `README.md` is updated for human review: **diagrams first** (end-to-end flow, outcome channels, `spec_*` surface), then concise bullet points (core value, fixture methods, strict-decode rules, how to run). A reviewer who has not read `.planning/` can see what Phase 4 shipped and how to exercise it
 
-**Plans**: TBD
+**Plans**: 6/6 plans executed
+(background agents permitted on approval for mechanical work incl. code, checkpoints stay inline)
+
+- [x] 04-01-PLAN.md — Tracer: `registry` + `transport` + `spec_health` end-to-end (SRV-06)
+- [x] 04-02-PLAN.md — Fixture methods `spec_fixtureRejection` / `spec_fixtureTransportFault` + Solidity CI (SRV-07)
+- [x] 04-03-PLAN.md — Strict request decode + stable JSON-RPC fault codes (PROTO-05, PROTO-08)
+- [x] 04-04-PLAN.md — `spec_*` namespace `-32601`, id echo, batch/notification rejection (PROTO-06, PROTO-09)
+- [x] 04-05-PLAN.md — Handler purity invariant + repeat-request tests (PROTO-10)
+- [x] 04-06-PLAN.md — README (D-01), verification report, summary, ledger closeout
 
 ### Phase 5: Warm Server Hardening
 

@@ -13,12 +13,12 @@
 - [x] **PROTO-02** **[M]**: Spec rejection travels inside the JSON-RPC `result` as a tagged value; the `error` field is reserved for protocol and transport faults. *Measured: a JSON-RPC error object, HTTP 500, connection refusal and timeout all revert with the identical selector `CheatcodeError(string)` = `0xeeaa9e6f`, differing only in unstable English text*
 - [x] **PROTO-03** **[M]**: Every response result is a single even-length `0x` hex string carrying a tag byte plus a bridge-owned ABI encoding. *Measured: `vm.rpc` coerces JSON results value-dependently — the same record decoded as `tuple(string,string,string)` for `tokenId:"0"` and `tuple(string,string,uint256)` for `tokenId:"18446744073709551616"`; objects reorder alphabetically by key; `null` becomes 32 zero bytes*
 - [x] **PROTO-04**: All numeric and byte quantities are hex strings; JSON numbers are never used for domain values
-- [ ] **PROTO-05**: Decoding is strict — unknown fields, out-of-range values and non-canonical encodings are typed protocol faults, never silently defaulted
-- [ ] **PROTO-06**: Every method is namespaced `spec_*`; any other method returns JSON-RPC `-32601`
+- [x] **PROTO-05**: Decoding is strict — unknown fields, out-of-range values and non-canonical encodings are typed protocol faults, never silently defaulted
+- [x] **PROTO-06**: Every method is namespaced `spec_*`; any other method returns JSON-RPC `-32601`
 - [x] **PROTO-07**: Every response carries a `protocolVersion` field
-- [ ] **PROTO-08**: Protocol faults carry stable numeric error codes, not free text
-- [ ] **PROTO-09**: The JSON-RPC `id` is echoed; notifications and unexpected batch shapes are rejected
-- [ ] **PROTO-10**: Handlers are pure — a response is a function of the request alone, with no cross-request state. A tested, documented invariant, not an accident of the implementation
+- [x] **PROTO-08**: Protocol faults carry stable numeric error codes, not free text
+- [x] **PROTO-09**: The JSON-RPC `id` is echoed; notifications and unexpected batch shapes are rejected
+- [x] **PROTO-10**: Handlers are pure — a response is a function of the request alone, with no cross-request state. A tested, documented invariant, not an accident of the implementation
 
 ### Server
 
@@ -28,8 +28,8 @@
 - [ ] **SRV-03**: Request handling is concurrency-safe — no global mutable state and no lock serializing spec evaluation, since `forge test` is parallel across logical cores by default
 - [ ] **SRV-04**: Every handler has an exception firewall converting Haskell bottoms into typed internal-error responses, so a spec bug cannot present as a transport failure
 - [ ] **SRV-05** **[S]**: Every handler is time-bounded and a timeout returns a typed response rather than dropping the connection. *Foundry hardcodes a 45s timeout for `vm.rpc`; `foundry.toml`'s `eth_rpc_timeout` does not reach it*
-- [ ] **SRV-06**: `spec_health` returns the same tagged envelope a domain method returns, so a green health check proves domain payloads survive the trip
-- [ ] **SRV-07**: `spec_fixtureRejection` and `spec_fixtureTransportFault` exercise the rejection and fault paths with no domain payload
+- [x] **SRV-06**: `spec_health` returns the same tagged envelope a domain method returns, so a green health check proves domain payloads survive the trip
+- [x] **SRV-07**: `spec_fixtureRejection` and `spec_fixtureTransportFault` exercise the rejection and fault paths with no domain payload
 - [ ] **SRV-08**: Lifecycle is owned by the harness — start, poll readiness with backoff and a deadline, run, stop — and failure to become ready aborts the run rather than proceeding. Implemented as container lifecycle (`docker run --rm`), which bounds process lifetime by construction rather than by best-effort teardown
 
 ### Code Generation
@@ -108,19 +108,19 @@ Populated during roadmap creation (2026-08-27).
 | **PROTO-02** | Phase 3 | Met — 03-04 outcomeResponse; 03-05 discrimination |
 | **PROTO-03** | Phase 3 | Met — 03-03 envelope; 03-06 boundary sweep |
 | **PROTO-04** | Phase 3 | Met — 03-02 Hex0x + hex-only-guard |
-| **PROTO-05** | Phase 4 | Pending |
-| **PROTO-06** | Phase 4 | Pending |
+| **PROTO-05** | Phase 4 | Met — 04-03 strict parseRequest |
+| **PROTO-06** | Phase 4 | Met — 04-04 spec_* namespace guard |
 | **PROTO-07** | Phase 3 | Met — 03-03 version property; 03-07 version-sweep |
-| **PROTO-08** | Phase 4 | Pending |
-| **PROTO-09** | Phase 4 | Pending |
-| **PROTO-10** | Phase 4 | Pending |
+| **PROTO-08** | Phase 4 | Met — 04-03 fault code tests |
+| **PROTO-09** | Phase 4 | Met — 04-04 batch/notification/id tests |
+| **PROTO-10** | Phase 4 | Met — 04-05 purity invariant |
 | **SRV-01** | Phase 6 | Pending |
 | **SRV-02** | Phase 5 | Pending |
 | **SRV-03** | Phase 5 | Pending |
 | **SRV-04** | Phase 5 | Pending |
 | **SRV-05** | Phase 5 | Pending |
-| **SRV-06** | Phase 4 | Pending |
-| **SRV-07** | Phase 4 | Pending |
+| **SRV-06** | Phase 4 | Met — 04-01 spec_health |
+| **SRV-07** | Phase 4 | Met — 04-02 SpecFixtures.t.sol |
 | **SRV-08** | Phase 6 | Pending |
 | **SRV-09** | Phase 6 | Pending |
 | **GEN-01** | Phase 8 | Pending |

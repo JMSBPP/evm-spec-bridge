@@ -6,7 +6,6 @@ author:      JMSBPP
 maintainer:  juan.serranotmf@gmail.com
 copyright:   2026 JMSBPP
 
-# Mirrors the spec repo's flag set so both trees fail on the same things.
 ghc-options:
 - -Wall
 - -Wcompat
@@ -20,6 +19,35 @@ ghc-options:
 
 dependencies:
 - base >= 4.7 && < 5
+- aeson
+- bytestring
+- scientific
+- text
+- vector
+- json-rpc
+- web3-solidity
+- evm-spec-bridge-protocol
+- evm-spec-bridge-abi-codec
+- evm-spec-bridge-jsonrpc
 
 library:
   source-dirs: src
+
+tests:
+  registry-test:
+    main:        Main.hs
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - evm-spec-bridge-registry
+    - evm-spec-bridge-protocol
+    - evm-spec-bridge-abi-codec
+    - evm-spec-bridge-jsonrpc
+    - tasty
+    - tasty-hunit
+    - aeson
+    - bytestring
+    - text

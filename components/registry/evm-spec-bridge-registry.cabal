@@ -24,5 +24,42 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , evm-spec-bridge-abi-codec
+    , evm-spec-bridge-jsonrpc
+    , evm-spec-bridge-protocol
+    , json-rpc
+    , scientific
+    , text
+    , vector
+    , web3-solidity
+  default-language: Haskell2010
+
+test-suite registry-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_evm_spec_bridge_registry
+  autogen-modules:
+      Paths_evm_spec_bridge_registry
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , evm-spec-bridge-abi-codec
+    , evm-spec-bridge-jsonrpc
+    , evm-spec-bridge-protocol
+    , evm-spec-bridge-registry
+    , json-rpc
+    , scientific
+    , tasty
+    , tasty-hunit
+    , text
+    , vector
+    , web3-solidity
   default-language: Haskell2010

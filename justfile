@@ -35,6 +35,13 @@ drift:
 foundry-pin:
     ./scripts/foundry-pin.sh
 
+# Phase 4 health smoke — spec_health returns hex envelope in result (stack + curl only).
+health:
+    ./scripts/health-test.sh
+
+fixtures:
+    ./scripts/fixtures-test.sh
+
 # Phase 3 stub oracle. MODE is success | rejection | fault | boundary | wedge.
 stub MODE PORT="8899":
     stack exec -- oracle-stub --mode {{MODE}} --port {{PORT}}
