@@ -141,7 +141,16 @@ Foundry-coercion conformance fixture). Do not build a standing CI lane here out 
 **Requirements**: PROTO-01, PROTO-02, PROTO-03, PROTO-04, PROTO-07, INTEG-02
 **Success Criteria** (what must be TRUE):
   1. A Solidity test tells a spec rejection from a dead server by reading a tag byte, with no string matching on revert text anywhere in the path — a rejection never travels on the JSON-RPC `error` channel
-  2. Boundary values spanning the measured coercion classes (zero, above 2^64, negative, empty, 32-byte, odd-nibble) round-trip byte-exact, and a property test asserts the encoder never emits JSON `null` or a JSON number for a domain value
+  2. Boundary values spanning the measured coercion classes (zero, above 2^64, negative, empty,
+     32-byte, odd-nibble) round-trip byte-exact **through a real `forge test`**, not merely through
+     our own encoder/decoder pair.
+     **AMENDED 2026-08-28:** the original required "a property test asserts the encoder never emits
+     JSON `null` or a JSON number". That is replaced by a **type-level guarantee — a JSON number or
+     `null` must be UNREPRESENTABLE in the result type**, evidenced by the type definition. A
+     property test asserting a property the type already makes impossible is vacuous by
+     construction, and a trivially-passing test is the artifact this project keeps removing.
+     Arrays and the three-encoding comparison (hex / decimal string / raw number) are deliberately
+     NOT here — they belong to Phase 8's coercion-conformance fixture (criterion 4)
   3. A test that points at a server which accepts and never answers goes **red**, not green — the 45s-hang-that-passes failure is impossible at the call site by construction, before any generator exists to enforce it
   4. Rejections carry a closed enumerated guard identity: adding a guard is a compile error at every site that consumes the type, and no free-text guard string is exposed for a consumer to start matching on
   5. Every response carries `protocolVersion`
