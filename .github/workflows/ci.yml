@@ -27,6 +27,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+      # DIST-06. First runnable step in the job: it reads one small file and exits, so it costs
+      # nothing measurable and goes red before the 106 s toolchain setup is spent.
+      #
+      # --check-format asserts WELL-FORMEDNESS only: the pin file is sourceable, all three values
+      # are present, FOUNDRY_COMMIT is a full 40-hex SHA. The BINARY assertion (`forge --version`
+      # contains that commit) is deliberately NOT run here, because forge is deliberately not
+      # installed in this workflow. Installing forge purely to assert that it is the forge we just
+      # installed would be circular -- it could only fail if the installer itself were broken --
+      # and it would add an unmeasured install to every run. The binary side is asserted locally,
+      # by `just foundry-pin`, which invokes this same script with no flag.
+      #
+      # There is deliberately NO Foundry install step anywhere in this workflow.
+      - name: Foundry pin well-formedness (DIST-06)
+        run: ./scripts/foundry-pin.sh --check-format
       - uses: haskell-actions/setup@v2
         with:
           ghc-version: '9.10.3'      # inherited from LTS 24.55, not chosen

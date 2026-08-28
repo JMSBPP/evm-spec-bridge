@@ -64,3 +64,25 @@ All four failure modes fire, and each fires DIFFERENTLY:
 
 The third row is the one the two-variable capture buys: a `forge` that cannot start reports as
 absent, not as the wrong version.
+
+---
+
+## Wiring (02-01-T5)
+
+`justfile` recipe `foundry-pin` -> `./scripts/foundry-pin.sh` (full local assertion, no flag).
+`.github/workflows/ci.yml` seam job -> `./scripts/foundry-pin.sh --check-format`, placed as the
+FIRST runnable step (line 40, immediately after `actions/checkout@v5`), well before the cache
+restore at line 57. One script, two callers, identical path.
+
+`grep -ci 'foundryup\|foundry-toolchain' .github/workflows/ci.yml` -> `0`. No Foundry install step
+was added to CI, by design.
+
+### UNVERIFIED on this box: `just foundry-pin`
+
+`just` is **not installed** on this machine — `command -v just` is empty and it is absent from
+`/usr/bin`, `~/.cargo/bin`, `~/.local/bin` and the nix profile; `pacman -Q just` reports the
+package is not installed. So the T5 acceptance criterion "`just foundry-pin` exits 0" is
+**unverified here**, not verified-and-passing. What IS verified is that the recipe body invokes
+the identical string CI would, and that `./scripts/foundry-pin.sh` itself exits 0 (see T3). This
+gap applies equally to the Phase 1 recipes (`just seam`, `just drift`, …) — CI never invokes
+`just`, it calls the scripts directly, so nothing in the gate depends on it.

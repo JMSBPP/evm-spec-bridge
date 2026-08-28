@@ -23,3 +23,9 @@ test:
 # Committed .cabal files must match package.yaml.
 drift:
     ./scripts/hpack-drift.sh
+
+# DIST-06. The full local assertion: the forge on THIS box is the pinned forge, by commit SHA.
+# CI runs the SAME script with --check-format (see .github/workflows/ci.yml) -- one script, two
+# callers, so the two sides cannot drift apart.
+foundry-pin:
+    ./scripts/foundry-pin.sh
