@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-08-27)
 
 Phase: 2 of 11 (Transport Spike — Throwaway)
 Plan: 0 of TBD in current phase
-Status: Gathering context
-Last activity: 2026-08-28 — Phase 1 complete (9/9 plans, CI green on seam+build+image, GHCR image anonymously pullable)
+Status: Context captured — ready to plan
+Last activity: 2026-08-28 — Phase 2 context captured; ROADMAP criteria amended around the warp/alloy gap
 
 Progress: [█░░░░░░░░░] 9%
 
@@ -58,8 +58,10 @@ None yet.
 ### Blockers/Concerns
 
 - **OPEN (external)**: `VolOrder(T)` wire format is owned by the consumer's Phase 4, roughly three phases out on their side. Must not be pre-empted. Blocks Phase 11 only.
-- **Phase 2 blocking input**: the consumer's exact pinned `forge --version` is unconfirmed. Every MEASURED research finding is scoped to `forge 1.5.1-stable`, and `master` vs 1.5.1 disagree on the return-path shape.
-- **Phase 2 unverified item**: whether Solidity `try`/`catch` works against the cheatcode address. The consumer has volunteered to run this experiment and report gate evidence — consume their result, do not duplicate it.
+- **CLOSED (Phase 2 discussion)**: the consumer's Foundry pin is confirmed at their `.github/foundry-version` (CI-05, commit `dddb26b`) — `v1.5.1` / `b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2`, byte-identical to the binary every measured finding is scoped to. The return-path shape resolves to 1.5.1's: unwrapped (`PITFALLS.md:103`).
+- **CLOSED**: Solidity `try`/`catch` against the cheatcode address — MEASURED, `0xeeaa9e6f` with non-empty errdata. Consumed, not re-derived.
+- **OPEN (Phase 2)**: whether alloy enforces a response `Content-Type` (`ARCHITECTURE.md:612`, LOW confidence). The last unverified transport item; probed as a three-row matrix.
+- **DEFERRED to Phase 6**: `guess_local_url`/`HTTP_PROXY` trap is `[S]` source-derived, never measured — the same provenance that produced the `vm.rpcJson` error.
 - **RETIRED (Phase 1)**: hosted-CI billing risk — hosted Actions execute; run `33125024351` green, 87 GB free.
 - **RETIRED (Phase 1)**: GHC-on-a-runner risk — cold hosted build 302 s; image builds and publishes.
 - **Carried tension (D6)**: hosted-only CI is structurally incapable of detecting the zombie-process / port-collision class that will bite the consumer's persistent self-hosted runner. Probed in Phase 1, resolved in Phase 10.
@@ -67,5 +69,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-08-28
-Stopped at: Phase 1 closed out (01-SUMMARY.md, ROADMAP, REQUIREMENTS traceability); gathering Phase 2 context
-Resume file: .planning/phases/01-repo-skeleton-component-seams-ci-floor/01-SUMMARY.md
+Stopped at: Phase 2 context captured and ROADMAP amended (0701e67); ready for /gsd:plan-phase 2
+Resume file: .planning/phases/02-transport-spike-throwaway/02-CONTEXT.md
