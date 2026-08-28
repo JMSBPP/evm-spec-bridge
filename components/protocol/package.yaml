@@ -9,6 +9,12 @@ copyright:   2026 JMSBPP
 # Mirrors the spec repo's flag set so both trees fail on the same things.
 ghc-options:
 - -Wall
+# -Wincomplete-patterns is implied by -Wall, but it is listed EXPLICITLY here
+# because PROTO-01 depends on it: a non-exhaustive case over SpecOutcome is
+# precisely the partial function that turns one outcome into another (by
+# dropping it). Naming the flag means a future -Wall trim cannot silently
+# remove the guarantee.
+- -Wincomplete-patterns
 - -Wcompat
 - -Widentities
 - -Wincomplete-record-updates

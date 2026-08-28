@@ -109,3 +109,51 @@ No `extra-deps` entry was needed: `web3-solidity-1.1.0.0` is snapshot-resident i
 `./scripts/seam-guard.sh` exits 0 with the dependency present. `web3-solidity` is not the spec, so
 it does not trip the `stack-core.yaml` proposition. The full 3-stage negative test is 03-01-T4's
 job, not this task's — this line records only that the cheap guard is green.
+
+---
+
+## 03-01-T3 — a criterion that cannot be satisfied as literally written
+
+`03-01-T3` and `03-07-T6` both assert:
+
+> `protocolVersion` appears exactly ONCE as a definition:
+> `grep -c '^protocolVersion'` returns **1**
+
+**It returns 2, and cannot return 1 in this component.** Measured:
+
+```
+$ grep -n '^protocolVersion' components/protocol/src/Bridge/Protocol.hs
+141:protocolVersion :: Word16
+142:protocolVersion = 1
+```
+
+Line 141 is the type signature, line 142 the single equation. Dropping the signature would make the
+grep return 1 — and would fail the build, because `-Wall` (already in this component's
+`ghc-options`) enables `-Wmissing-signatures` and `--pedantic` adds `-Werror`. There is no legal
+Haskell spelling of a top-level signature that does not begin at column 0 with the binder's name.
+
+So the criterion as phrased is in direct conflict with the project's own warning flags. The
+criterion's *intent* — one definition, no literal repeated at construction sites — holds. Evidence:
+
+```
+$ grep -c '^protocolVersion =' components/protocol/src/Bridge/Protocol.hs
+1
+$ grep -rn 'protocolVersion' components/ --include=*.hs
+components/protocol/src/Bridge/Protocol.hs:141:protocolVersion :: Word16
+components/protocol/src/Bridge/Protocol.hs:142:protocolVersion = 1
+```
+
+**Recommendation for 03-07-T6:** change the check to `grep -c '^protocolVersion ='` (expect 1) plus
+the repo-wide `grep -rn` above (expect no second definition). Recorded rather than silently
+substituted, on the same principle as the T2 dependency relocation.
+
+## A second grep that measured prose, not structure
+
+`grep -cE 'Data\.Aeson|Data\.Solidity' components/protocol/src/Bridge/Protocol.hs` initially
+returned **2** — both hits were in the module's own haddock, explaining that it imports neither.
+The module's only import has always been `Data.Word`.
+
+The prose was reworded so the check measures imports rather than the comment about imports. This is
+03-VALIDATION rule 6 read in reverse: a criterion must test structure, not comment text — which
+also means comment text must not be able to *fail* a structural criterion. `grep -c '^import'`
+returns 1 and it is `Data.Word`.
