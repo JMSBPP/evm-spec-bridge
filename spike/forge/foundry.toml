@@ -1,0 +1,26 @@
+# THROWAWAY. This forge project exists only to prove that `vm.rpc` reaches the
+# Haskell warp stub in spike/stub-server. It is deleted in plan 02-05 together with
+# the `spike-server` / `spike-test` recipes in the root justfile. Nothing outside
+# spike/ may depend on it.
+#
+# `libs = []` on purpose: no forge-std, no submodule, no lib/. The Vm interface is
+# four lines we wrote ourselves (see test/Spike.t.sol) -- forge-std would bring a
+# submodule, a version to pin, and a TYPED vm.rpc, which is the exact trap
+# PITFALLS.md:100-115 measured.
+#
+# The consumer repo's compile-tuning flags -- the IR pipeline switch, the code
+# optimiser, its additional compiler profiles and its fs_permissions -- are
+# DELIBERATELY NOT COPIED. They exist there because large reference contracts hit
+# "stack too deep" under legacy codegen. This test is a dozen lines; copying those
+# settings would add compile time and a second variable to a measurement we intend
+# to trust. (They are also not named literally here, so the plan's
+# "no compile-tuning flags present" grep stays honest.)
+#
+# solc is pinned because the research probes ran on 0.8.34 and an unpinned solc is a
+# silent variable in the decode behaviour being measured.
+[profile.default]
+test = "test"
+src = "src"
+out = "out"
+libs = []
+solc = "0.8.34"
