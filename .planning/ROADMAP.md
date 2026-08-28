@@ -314,8 +314,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   wherever a non-obvious choice is made, and never bundle independent decisions into one task.
   `plan_checker` stays disabled — the user is the check.
   **STRENGTHENED at Phase 2 (2026-08-28):** every decision must carry a **reference pointer** — a
-  `file:line`, a source URL, or a measurement, never recall. **Background agents are NOT
-  permitted**, and plans must encode that so a future executor cannot quietly delegate. **The
+  `file:line`, a source URL, or a measurement, never recall. **Background agents are
+  forbidden by default and permitted only on EXPLICIT user approval, for MECHANICAL tasks only**
+  (amended 2026-08-28); every `checkpoint:*` task stays inline with the user regardless. Teaching
+  is reported at PLAN BOUNDARIES rather than at each decision — batching applies to explanation,
+  not to consent. **The
   executing skill owns execution AND the STATE.md / ROADMAP.md update, inline** — added because
   Phase 1's ledger was never updated (ROADMAP read `0/9` while nine plans sat committed; patched
   by hand in `41eb40c`). The global `CLAUDE.md` two-step reviewer gate is **deliberately overridden

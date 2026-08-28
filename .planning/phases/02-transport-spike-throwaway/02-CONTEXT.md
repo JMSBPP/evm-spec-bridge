@@ -27,13 +27,17 @@ fourth names a file that cannot satisfy it. ROADMAP Phase 2 is amended alongside
 
 ### Execution model — GOVERNING, supersedes 01-CONTEXT's weaker formulation
 
-- **Heavy pedagogical.** Every concept is explained inline, not merely applied. A step that
-  produces the right artifact while leaving the user unable to explain it has half-failed.
+- **Heavy pedagogical.** Every concept is explained, not merely applied. A step that produces the
+  right artifact while leaving the user unable to explain it has half-failed. **Amended
+  2026-08-28:** explanations are reported at PLAN BOUNDARIES rather than at each individual
+  decision. Checkpoints still interrupt mid-plan — batching applies to teaching, not to consent.
 - **Every decision carries a reference pointer** — a `file:line`, a source URL, or a measurement.
   Not "it is known that" and not recall.
 - **User checkpoints between decisions.** Ask in between; do not present a finished wall of work.
-- **Background agents are NOT permitted.** Plans must encode this so a future executor cannot
-  quietly delegate to `gsd-executor` or any parallel subagent.
+- **Background agents: forbidden by default, permitted on EXPLICIT user approval** (amended
+  2026-08-28 mid-execution). When approved, delegation is limited to **mechanical tasks** — writing
+  files, wiring CI, running builds. Every `checkpoint:decision` and `checkpoint:human-verify` task
+  stays inline with the user regardless of approval.
 - **The executing skill owns execution AND the STATE.md / ROADMAP.md update**, inline. This exists
   because Phase 1's ledger was never updated — ROADMAP read `0/9` and STATE said "Ready to plan"
   while nine plans sat committed; it was patched by hand afterwards in `41eb40c`.
