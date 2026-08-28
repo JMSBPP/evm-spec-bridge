@@ -36,9 +36,21 @@ Carried from Phases 1-2, all earned:
 4. **A criterion phrased against a tool needs evidence the tool exists.**
 5. **A measurement is scoped to its CODE PATH as much as to its version** — `vm.rpc` and
    `vm.parseJson` disagree on identical JSON because `convert_to_bytes` runs on the rpc path only.
-6. **New for this phase — a criterion must test configuration, not comment text.** Two Phase 2
-   criteria were satisfied by rewording comments. Prefer `forge config --json`, a type signature,
-   or a compile result over a `grep` of source.
+6. **A criterion must test a PROPERTY, not source text.** This has now failed four times and is
+   the most reliable defect in our own criteria:
+   - Phase 2: `grep -c 'via_ir\|optimizer'` tripped by a comment explaining what we deliberately
+     do NOT set — cleared by rewording the comment, not by changing configuration.
+   - Phase 2: the "no typed `= vm.rpc(`" grep, same shape.
+   - Phase 3: `grep -c '^protocolVersion'` required to be 1 — **impossible**, because the type
+     signature and the equation both begin at column 0, and deleting the signature fails
+     `-Wmissing-signatures` under `--pedantic`. The criterion contradicted the project's own flags.
+   - Phase 3: `grep -cE 'Data\.Aeson|Data\.Solidity'` required to be 0 — tripped by a haddock
+     comment *stating that the module imports neither*. The property was true; the text was not.
+
+   **Rule:** prefer a compile result, a type signature check, effective config (`forge config
+   --json`, `stack ls dependencies`), or an assertion on EMITTED output. When a `grep` is genuinely
+   the right instrument, anchor it to syntax that cannot appear in prose — `'^name ='`, not
+   `'^name'`; and never write a criterion whose only failure mode is someone mentioning the thing.
 
 ---
 
