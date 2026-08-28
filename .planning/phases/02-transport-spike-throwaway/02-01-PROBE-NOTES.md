@@ -771,3 +771,110 @@ stack's wrapper PID and `kill` can leave the listener holding the port, which wo
 make the NEXT row measure the PREVIOUS row's server.
 
 `just --list` now shows `spike-matrix PORT="8547"`.
+
+---
+
+# 02-04 — Content-Type matrix and the hex envelope
+
+**Conditions for everything below:** forge 1.5.1-stable / `b0a9dd9`, solc 0.8.34, warp 3.4.9 on
+`127.0.0.1:8547`, Linux, single host, loopback, `vm.rpc` path (NOT `vm.parseJson` — see the
+`convert_to_bytes` note). Pin asserted before each measurement.
+
+## 02-04-T3 — Content-Type matrix — MEASURED
+
+Body byte-identical across all three rows: 102 bytes, sha256
+`8f80ef6a6e50f450fee0f1a6e462e88211030a8f40e2749d820a00bd40166af2`, verified with `cmp` in all
+three pairings. Same bytes, three headers, one difference.
+
+| mode | header observed on the wire (`curl -i`) | `forge test` exit | verdict |
+|---|---|---|---|
+| `json` | `Content-Type: application/json` | **0** | pass |
+| `text` | `Content-Type: text/plain` | **0** | pass |
+| `none` | *(header absent — 4 headers, not 5)* | **0** | pass |
+
+For `none`, warp 3.4.9 did **not** insert a default; absence was read off raw `curl -i` output, not
+inferred from the Haskell.
+
+### Verdict: `ARCHITECTURE.md:612` is RETIRED
+
+> "Does alloy's HTTP transport enforce a `Content-Type` on the response? Not verified. Send
+> `application/json` regardless. **LOW confidence** that it is optional."
+
+**It is optional.** alloy accepts `application/json`, `text/plain`, and no Content-Type header at
+all, on this version and this path. The last LOW-confidence transport item is closed.
+
+We will still send `application/json`, because being correct costs nothing and this result is
+scoped to one version. But a missing or wrong Content-Type is **not** a failure mode we need to
+design around, and it is not a candidate explanation when something else breaks.
+
+**What this does NOT establish:** one host, one OS, one observation per row; nothing about proxies,
+HTTP/2, or the consumer's runner.
+
+## 02-04-T4 — the hex envelope, byte-exact — MEASURED, including the Address branch
+
+Scope extended mid-plan (user-approved) after `gams-evm-transport` measured that on the
+**`vm.parseJson`** path a 32-byte hex string coerces to `bytes32` and `abi.decode(ret,(bytes))`
+REVERTS, and a 20-byte one coerces to `address`. Our rule rested on `convert_to_bytes` collapsing
+all three branches — `[SOURCE]` plus exactly ONE measured case. The Address branch was unmeasured.
+
+### Case A — 32-byte payload (control)
+
+```
+raw returndata, 96 bytes:
+  0000…0020   offset = 32
+  0000…0020   length = 32
+  0000…002a   payload = 42
+abi.decode(ret,(bytes)) -> 32 bytes, keccak matched.  2 passed.
+```
+
+### Case B — 20-byte payload, the Address branch — NEW
+
+Payload `1111111111111111111111111111111111111111` (40 nibbles = 20 bytes):
+
+```
+raw returndata, 96 bytes:
+  0000000000000000000000000000000000000000000000000000000000000020   offset = 32
+  0000000000000000000000000000000000000000000000000000000000000014   length = 0x14 = 20
+  1111111111111111111111111111111111111111 000000000000000000000000   20 bytes + 12 pad
+```
+
+**`convert_to_bytes` DOES collapse `Address` → `Bytes`, and preserves the true length of 20.** It
+is not widened to 32 and not reinterpreted as an address on the Solidity side.
+`abi.decode(ret,(bytes))` succeeded and yielded 20 bytes; `test_vmRpcReachesWarp` then failed
+correctly on the equality assertion, because the payload is not the 32-byte encoding of 42 — a
+*content* failure, not a *shape* failure, which is exactly the discrimination we wanted.
+
+### Consequence
+
+The hex-envelope rule (`PITFALLS.md:82`) holds on the `vm.rpc` path for BOTH the 20-byte/Address
+and 32-byte/FixedBytes branches. `gams-evm-transport`'s "pin your payload length or avoid 20 and 32
+bytes" hazard is **real on `vm.parseJson` and does not transfer to `vm.rpc`** — because
+`convert_to_bytes` (`FEATURES.md:27`, `evm/fork.rs:535-546`) runs on the rpc path only.
+
+**A measurement is scoped to its CODE PATH as much as to its version.** `vm.rpc` and `vm.parseJson`
+give different answers for identical JSON. Every coercion row in our research is `vm.rpc`-scoped
+unless it says otherwise, and this must be labelled wherever those rows are reused.
+
+### Odd-nibble and non-hex payloads are REJECTED by the stub, not padded
+
+```
+$ stub-server 8547 json abc     -> exit 1, "ODD nibble count (3) ... lands in the STRING branch"
+$ stub-server 8547 json zzzz    -> exit 1, "must be bare hex, no 0x prefix"
+```
+
+Silently padding an odd-length payload would convert a length bug into a *coercion* bug — the odd
+string leaves the bytes branch entirely and lands in the value-dependent string branch (measured by
+`gams-evm-transport` on parseJson; consistent with `PITFALLS.md:63` here).
+
+## Resolved: the `echoed-id=0` / two-requests observation
+
+Flagged as unexplained by the executing agent. Both parts are benign and one is a validated design
+choice:
+
+- **Two requests per run** = two test functions, each making one `vm.rpc` call. Expected.
+- **alloy sends `"id":0`**, not 1. Measured: `2 echoed-id=0`.
+
+02-02's plan text said "the id will almost certainly be 1 — but 'almost certainly' is an
+assumption, and echoing costs four lines." **The assumption was wrong and the echo absorbed it.**
+Had the stub hard-coded `id:1`, we would be relying on alloy not checking correlation. Cheap
+defensive choice, vindicated by measurement.

@@ -20,8 +20,11 @@ import           Text.Read                  (readMaybe)
 
 -- 32-byte big-endian ABI encoding of decimal 42: 64 hex chars, an EVEN nibble count.
 -- Odd would not be valid hex and would fall into a different Foundry coercion branch.
-payload :: BL.ByteString
-payload = "000000000000000000000000000000000000000000000000000000000000002a"
+-- Default payload: the 32-byte ABI encoding of decimal 42. An optional third
+-- positional arg overrides it, so 02-04-T4 can measure the 20-byte/Address branch
+-- of json_value_to_token, which convert_to_bytes is *claimed* to collapse to bytes.
+defaultPayload :: BL.ByteString
+defaultPayload = "000000000000000000000000000000000000000000000000000000000000002a"
 
 -- The Content-Type probe (02-04). THREE modes, ONE body.
 --
@@ -69,24 +72,25 @@ echoedId body = case decode body of
 
 -- The single source of the response bytes. Takes no CtMode, by construction: that is
 -- what makes "byte-identical across modes" a property of the code and not a promise.
-responseBody :: BL.ByteString -> BL.ByteString
-responseBody body =
-  BL.concat ["{\"jsonrpc\":\"2.0\",\"id\":", encode (echoedId body), ",\"result\":\"0x", payload, "\"}"]
+responseBody :: BL.ByteString -> BL.ByteString -> BL.ByteString
+responseBody pl body =
+  BL.concat ["{\"jsonrpc\":\"2.0\",\"id\":", encode (echoedId body), ",\"result\":\"0x", pl, "\"}"]
 
-app :: CtMode -> Application
-app mode req respond = do
+app :: CtMode -> BL.ByteString -> Application
+app mode pl req respond = do
   body <- strictRequestBody req
-  let out = responseBody body
+  let out = responseBody pl body
   putStrLn $ "[stub] ct-mode=" ++ modeName mode
           ++ " path=" ++ show (rawPathInfo req)
           ++ " body-bytes=" ++ show (BL.length body)
           ++ " echoed-id=" ++ BLC.unpack (encode (echoedId body))
+          ++ " payload-nibbles=" ++ show (BL.length pl)
           ++ " resp-bytes=" ++ show (BL.length out)
   respond (responseLBS status200 (modeHeaders mode) out)
 
 usage :: IO a
 usage = do
-  hPutStrLn stderr "usage: stub-server PORT [MODE]"
+  hPutStrLn stderr "usage: stub-server PORT [MODE] [PAYLOAD_HEX]"
   hPutStrLn stderr "  PORT is required; there is no default."
   hPutStrLn stderr "  MODE is the response Content-Type mode; it defaults to `json`."
   hPutStrLn stderr "  valid MODEs: json, text, none"
@@ -97,22 +101,44 @@ usage = do
 
 -- Bound to 127.0.0.1 and nothing else: alloy's guess_local_url treats only
 -- localhost / 127.0.0.1 / ::1 as local, and only those get no_proxy.
-run :: Int -> CtMode -> IO ()
-run port mode = do
+run :: Int -> CtMode -> BL.ByteString -> IO ()
+run port mode pl = do
   putStrLn $ "[stub] listening on 127.0.0.1:" ++ show port ++ " ct-mode=" ++ modeName mode
-  runSettings (setHost "127.0.0.1" (setPort port defaultSettings)) (app mode)
+          ++ " payload-nibbles=" ++ show (BL.length pl)
+  runSettings (setHost "127.0.0.1" (setPort port defaultSettings)) (app mode pl)
+
+-- Reject an odd nibble count rather than padding it. An odd-length hex string does
+-- NOT reach the bytes branch of json_value_to_token -- gams-evm-transport measured it
+-- landing in the *string* branch, which is value-dependent. Silently padding would
+-- convert a length bug into a coercion bug.
+checkPayload :: String -> IO BL.ByteString
+checkPayload h
+  | odd (length h) = do
+      hPutStrLn stderr ("ERROR: PAYLOAD_HEX has an ODD nibble count (" ++ show (length h) ++ ")")
+      hPutStrLn stderr "       Odd-length hex lands in the STRING coercion branch, not bytes."
+      exitFailure
+  | not (all (`elem` ("0123456789abcdefABCDEF" :: String)) h) = do
+      hPutStrLn stderr "ERROR: PAYLOAD_HEX must be bare hex, no 0x prefix"
+      exitFailure
+  | otherwise = pure (BLC.pack h)
 
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   args <- getArgs
   case args of
-    [p] | Just port <- readMaybe p -> run port CtJson
+    [p] | Just port <- readMaybe p -> run port CtJson defaultPayload
     [p, m] | Just port <- readMaybe p ->
       case parseMode m of
-        Just mode -> run port mode
+        Just mode -> run port mode defaultPayload
         Nothing   -> do
           hPutStrLn stderr ("ERROR: unrecognised Content-Type mode: " ++ show m)
           hPutStrLn stderr "       There is NO fallback -- a typo must not silently run the `json` row."
+          usage
+    [p, m, hx] | Just port <- readMaybe p ->
+      case parseMode m of
+        Just mode -> checkPayload hx >>= run port mode
+        Nothing   -> do
+          hPutStrLn stderr ("ERROR: unrecognised Content-Type mode: " ++ show m)
           usage
     _ -> usage
