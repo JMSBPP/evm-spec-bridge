@@ -157,3 +157,81 @@ The prose was reworded so the check measures imports rather than the comment abo
 03-VALIDATION rule 6 read in reverse: a criterion must test structure, not comment text — which
 also means comment text must not be able to *fail* a structural criterion. `grep -c '^import'`
 returns 1 and it is `Data.Word`.
+
+---
+
+## 03-01-T4 — the seam guard still fires with a real third-party dependency in core
+
+Run inline with the user. **The script was NOT modified** — `git diff --exit-code
+scripts/seam-negative-test.sh` exits 0. If it had needed modifying to accommodate `web3-solidity`,
+that would itself have been the finding.
+
+| Stage | Result |
+|---|---|
+| CONTROL — `./scripts/seam-guard.sh` on the clean tree | **exit 0** |
+| 3-stage negative test, unmodified | **exit 0** |
+| Its verdict, verbatim | `PASS: control resolved, guard fired with S-4804 naming the offender, contrast confirms it is the seam` |
+
+Identical behaviour to 01-04's recorded run. The guard is unaffected by a core component gaining a
+snapshot dependency.
+
+### What the dry-run output additionally proves
+
+`stack-core.yaml` — the **spec-less** config — resolves `web3-solidity-1.1.0.0` from the snapshot
+without complaint, listing it as `database=snapshot`. This is worth stating because it clarifies
+what the guard actually asserts: **"no core component depends on the SPEC"**, not "no core
+component has dependencies". The two are easy to conflate when the only dependency the guard had
+ever seen was the spec itself.
+
+### UNPREDICTED: the Polkadot SCALE codec arrives anyway
+
+The build plan under `stack-core.yaml` includes:
+
+```
+* bitvec-1.1.6.0
+* scale-1.1.0.0          <- SCALE: the Polkadot/Substrate codec
+* web3-crypto-1.1.0.0    ... after: memory-hexstring-1.1.0.0
+* web3-solidity-1.1.0.0  ... after: cereal, generics-sop, memory-hexstring, microlens, web3-crypto
+```
+
+We chose `web3-solidity` over the `web3` meta-package **specifically to avoid `web3-polkadot`**.
+That still holds — `web3-polkadot` is not in the plan. But **`scale`, the Substrate codec, comes in
+transitively through `web3-crypto`**, which `web3-solidity` depends on unconditionally.
+
+So the avoidance was partial. We dodged the Polkadot *package*; we did not dodge its *codec*. This
+is not a defect — `scale` is pure Haskell with no native deps, and the container check still holds
+— but the claim "we avoided Polkadot" is narrower than it sounded, and is corrected here rather
+than left to be remembered generously.
+
+**Relevant to Phase 8:** if the codegen ever wants a smaller dependency footprint, hand-rolling the
+three encodings (`uint16`, `uint8`, `bytes`) removes `web3-solidity`, `web3-crypto`, `scale`,
+`bitvec`, `generics-sop`, `sop-core`, `microlens` and `memory-hexstring` in one move. Recorded as an
+option with its cost known, not as a recommendation.
+
+---
+
+## Corrections to our OWN acceptance criteria (03-01)
+
+Two criteria in `03-01-PLAN.md` were defective, both mine, both the same class.
+
+**1. `grep -c '^protocolVersion'` required to return 1 — IMPOSSIBLE.**
+`Bridge/Protocol.hs:146` is the type signature and `:147` the equation; both begin at column 0, so
+the count is necessarily 2. Deleting the signature would satisfy the criterion **and fail the
+build**: `-Wall` enables `-Wmissing-signatures` and `--pedantic` adds `-Werror`. The criterion
+contradicted the project's own compiler flags. Corrected to `'^protocolVersion ='` in 03-01 and
+03-07. The executing agent refused to work around it and reported it, which is the correct handling.
+
+**2. `grep -cE 'Data\.Aeson|Data\.Solidity'` required to return 0 — tripped by a comment.**
+The module's haddock said it imports neither, and therefore contained both strings. The property
+was true; the text was not. The comment was reworded — a change made to satisfy a grep, not to fix
+a defect, and flagged as such by the agent.
+
+**This is the FOURTH occurrence.** Phase 2 had two (`via_ir\|optimizer` tripped by a comment
+explaining what we deliberately do not set; the "no typed `= vm.rpc(`" grep). `03-VALIDATION.md`
+already carried the rule "a criterion must test configuration, not comment text" — and these were
+written anyway.
+
+**The rule, strengthened in 03-VALIDATION.md:** prefer a compile result, a type signature, effective
+config, or an assertion on emitted output. Where a grep genuinely is the right instrument, anchor it
+to syntax that cannot appear in prose (`'^name ='`, not `'^name'`) — and **never write a criterion
+whose only failure mode is someone mentioning the thing.**
