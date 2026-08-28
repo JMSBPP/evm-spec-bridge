@@ -559,3 +559,95 @@ uninstallable check is indistinguishable from a passing one when nobody runs it.
 So: work flows freely on the fork with CI as feedback, and canonical is genuinely gated. Worth
 stating plainly because "we have a CI gate" is ambiguous between the two, and only one of them
 can stop a bad change.
+
+---
+
+# 02-03 — `vm.rpc` REACHES A HASKELL SERVER (the thing nobody had done)
+
+Run inline with the user. Pin asserted first: `PASS: forge matches the pin -- v1.5.1 at commit
+b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2`, exit 0.
+
+**Conditions:** forge 1.5.1-stable / `b0a9dd9`, solc 0.8.34, warp 3.4.9 on `127.0.0.1:8547`,
+single host (this box), loopback only, low-level `address(vm).call` form, no forge-std.
+
+## 02-03-T4 — the measurement
+
+`forge test` exit **0**, `2 passed; 0 failed; 0 skipped`.
+
+### Raw returndata, verbatim — 96 bytes
+
+```
+0x0000000000000000000000000000000000000000000000000000000000000020   <- head offset = 32
+  0000000000000000000000000000000000000000000000000000000000000020   <- length      = 32
+  000000000000000000000000000000000000000000000000000000000000002a   <- payload     = 42
+```
+
+That is the layout of `abi.encode(bytes)`.
+
+- `abi.decode(ret, (bytes))` **SUCCEEDED**
+- decoded length **32**, value `0x…2a`
+- `keccak256(decoded) == keccak256(expected)` **held**
+
+### Return-path shape — stated carefully, because it is easy to over-read
+
+PITFALLS.md:103 measured that on 1.5.1 the raw returndata is `abi.encode(<coerced value>)`, **not**
+`abi.encode(<bytes>)`. Our result IS wrapped as `abi.encode(bytes)`.
+
+**This is NOT a disagreement.** Our stub returns a 64-hex-char (even-nibble) `0x` string, which
+Foundry coerces to `DynSolValue::Bytes`. For this payload the coerced value **is** `bytes`, so
+`abi.encode(<coerced value>)` and `abi.encode(<bytes>)` are the same 96 bytes. This reproduces
+PITFALLS' own passing row and nothing more.
+
+**What this measurement does NOT establish, and Phase 3 must not infer:**
+- nothing about the `uint256` / `int256` / tuple coercion rows
+- nothing about whether wrapping is universal across payload shapes
+- nothing about the `master` vs `1.5.1` wrapping difference — **still unverified**
+
+It confirms that the hex-envelope discipline (`PITFALLS.md:82`) delivers a decodable, byte-exact
+round trip against warp. That is the load-bearing claim, and it holds.
+
+## 02-03-T5 — the green is NOT vacuous
+
+Server stopped, port confirmed free, identical test re-run:
+
+```
+forge test exit = 1                                   <- RED
+[FAIL: vm.rpc reverted -- see -vvv for CheatcodeError body] test_vmRpcReachesWarp()
+  └─ [Revert] vm.rpc: "spec_health": error sending request for url (http://127.0.0.1:8547/)
+selector present in errdata: 0xeeaa9e6f                <- CheatcodeError(string)
+Suite result: FAILED. 1 passed; 1 failed; 0 skipped
+```
+
+Test counts non-zero in both runs (2 total). `forge test` reporting "0 tests passed" exits 0, so
+the COUNT is checked, not only the exit status.
+
+This simultaneously re-confirms the measured `try`/`catch` finding on our own stack: a dead endpoint
+produces a cheatcode revert carrying `0xeeaa9e6f` with a non-empty string body.
+
+### A live specimen of the false-green shape, found by accident
+
+`test_rawShapeIsRecorded()` **PASSES with the server down.** It is an observation-only probe that
+asserts nothing, so it is green whether or not the oracle is alive. That is intentional here — its
+job is to keep the wire shape visible even when the assertion test fails.
+
+But it is exactly the shape of the failure this project exists to prevent: **a test that passes
+regardless of whether the oracle answered.** Worth keeping as a concrete example. The suite goes
+red only because `test_vmRpcReachesWarp` asserts something.
+
+## Instrument notes from 02-03
+
+1. **`-vvv` does not print traces for PASSING tests on 1.5.1** — only for failing ones. The raw
+   bytes are visible only at `-vvvv`. A `-vvv` run of a green suite shows no returndata at all, so
+   a measurement taken at `-vvv` would silently record nothing. `just spike-test` stays at `-vvv`
+   (per plan); use `-vvvv` when capturing bytes.
+2. **Hand-rolled `console.log` never appears in a "Logs:" section at any verbosity** on 1.5.1
+   (tried both `staticcall` and `call`). Events are the record; console was removed.
+3. **`vm.rpc` redacts its URL in traces** as `"<rpc url>"`. The real endpoint is confirmed only via
+   the stub's own request log and the connection-refused message.
+4. **Two acceptance criteria are now satisfied partly by WORDING, not only by substance.**
+   `grep -c 'via_ir\|optimizer' spike/forge/foundry.toml` and the "no typed `= vm.rpc(`" grep were
+   both initially tripped by *comments explaining what we deliberately do not do*. Rewording the
+   comments cleared them. The substance is correct — those options are genuinely unset and the call
+   is genuinely low-level — but the checks are weaker than they look: they measure text, not
+   configuration. A better criterion would read effective config (`forge config --json`) rather
+   than grep source. Recorded rather than fixed; noted for Phase 3's criteria design.
