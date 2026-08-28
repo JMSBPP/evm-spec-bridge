@@ -2,3 +2,5 @@
 *.hi
 *.o
 dist-newstyle/
+solidity/out/
+solidity/cache/

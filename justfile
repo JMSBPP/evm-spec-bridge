@@ -35,6 +35,30 @@ drift:
 foundry-pin:
     ./scripts/foundry-pin.sh
 
+# Phase 3 stub oracle. MODE is success | rejection | fault | boundary | wedge.
+stub MODE PORT="8899":
+    stack exec -- oracle-stub --mode {{MODE}} --port {{PORT}}
+
+discriminate:
+    ./scripts/foundry-pin.sh
+    ./scripts/run-with-stub.sh rejection 8899 "forge test --match-path test/Discrimination.t.sol --match-test test_rejection -vvvv"
+
+discriminate-dead:
+    ./scripts/foundry-pin.sh
+    cd solidity && EVM_SPEC_BRIDGE_URL=http://127.0.0.1:8899 forge test --match-test test_deadServer -vvvv
+
+boundary-sweep:
+    ./scripts/boundary-sweep.sh
+
+wedge-red:
+    ./scripts/wedge-red-test.sh
+
+version-sweep:
+    ./scripts/foundry-pin.sh
+    ./scripts/run-with-stub.sh success 8899 "forge test --match-test test_success -vvvv"
+    ./scripts/run-with-stub.sh rejection 8899 "forge test --match-test test_rejection -vvvv"
+    ./scripts/run-with-stub.sh fault 8899 "forge test --match-test test_faultPath -vvvv"
+
 # Local mirror of the CI `image` job (01-06 / DIST-04). The tag is a fixed local
 # name -- CI computes a lowercase, slash-free ref from github.repository, which is
 # not reproducible off a runner. Same Dockerfile, same context, same smoke command.

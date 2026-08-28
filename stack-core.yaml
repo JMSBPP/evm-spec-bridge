@@ -24,6 +24,7 @@ packages:
 - components/protocol
 - components/abi-codec
 - components/jsonrpc
+- components/oracle-stub
 - components/registry
 - components/transport
 - components/codegen

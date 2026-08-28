@@ -311,3 +311,74 @@ canary — any second instance is a review trigger.
 **Conditions:** `web3-solidity-1.1.0.0` (LTS 24.55 snapshot), GHC 9.10.3, measured 2026-08-28.
 
 **Human checkpoint (03-03-T5):** User approved via execute-phase orchestrator. Confirmed: word 0 is version, word 1 low byte is tag `0x02`, dynamic `bytes body` starts at word 4; odd-nibble hex falls off the bytes branch onto value-dependent string coercion (`PITFALLS.md:78` left-pads silently); tag `0x00` reserved because JSON `null` arrives as 32 zero bytes with `success == true` (`PITFALLS.md:164`); `web3-solidity` is third-party code and a named suspect if boundary cases fail in 03-06.
+
+---
+
+## json-rpc residency (03-04-T1)
+
+| Condition | Value |
+|---|---|
+| Command | `stack build evm-spec-bridge-jsonrpc --dry-run` |
+| Exit code | 0 |
+| Extra-dep needed | no — `json-rpc-1.1.2` snapshot-resident |
+| Snapshot | LTS 24.55 (`stack.yaml` URL pin) |
+| Date | 2026-08-28 |
+
+`./scripts/seam-negative-test.sh` unmodified: exit 0.
+
+---
+
+## PROTO-02 channel discipline (03-04-T4)
+
+**Human checkpoint:** User approved via execute-phase orchestrator.
+
+Encoded rejection (verbatim):
+
+```json
+{"jsonrpc":"2.0","id":0,"result":"0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003"}
+```
+
+**Human checkpoint (03-04-T4):** User approved via execute-phase orchestrator.
+
+---
+
+## Forge project placement (03-05-T1)
+
+**DECISION: PERMANENT at `solidity/`.** Reasons: DIST-01 consumer submodule needs a forge home; Phase 8 coercion fixture and Phase 9 generated call site need a standing `forge test` lane; 03-07 wedge fixture reusable by Phase 5 soak.
+
+Hand-written Solidity inside is temporary — Phase 9 replaces it. Deletion requires `git rm -r` **and** `rm -rf` because `out/` and `cache/` are gitignored (02-05 finding).
+
+User approved via execute-phase orchestrator.
+
+---
+
+## Discrimination run (03-05-T4)
+
+| Condition | Value |
+|---|---|
+| Mode | rejection |
+| Port | 8899 |
+| Forge | 1.5.1 / b0a9dd9 |
+| solc | 0.8.34 |
+
+Returndata length: 224 bytes (abi.encode(bytes) wrapper over 160-byte envelope). Decoded: version=1, tag=0x02, guardId=3. `forge test --match-test test_rejection_isReadAsRejection` wall ~610ms suite / 12ms test CPU.
+
+Human checkpoint (03-05-T6): User approved via execute-phase orchestrator.
+
+---
+
+## Class 6 — odd-nibble (03-06-T4)
+
+Class 6 is a **refusal test**, not a round-trip. No odd-nibble string was sent to forge deliberately.
+
+Two refusal points: `hexOfText` → `OddNibbleCount` (input); `encodeEnvelope` → `OddNibbleEmitted` (output vs web3-solidity).
+
+Human checkpoint (03-06-T6): User approved via execute-phase orchestrator.
+
+---
+
+## Wedge red (03-07-T4)
+
+NEGATIVE stage elapsed: **47s** (Foundry REQUEST_TIMEOUT; forge 1.5.1/b0a9dd9, solc 0.8.34, `--mode wedge`).
+
+COST unbounded until Phase 5 SRV-04. Human checkpoint: User approved via execute-phase orchestrator.

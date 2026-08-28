@@ -1,0 +1,40 @@
+name:        evm-spec-bridge-oracle-stub
+version:     0.1.0.0
+synopsis:    Phase 3 stub oracle serving fixed envelopes
+license:     BSD-3-Clause
+author:      JMSBPP
+maintainer:  juan.serranotmf@gmail.com
+copyright:   2026 JMSBPP
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+dependencies:
+- base >= 4.7 && < 5
+- warp
+- wai
+- aeson
+- bytestring
+- http-types
+- optparse-applicative
+- text
+- scientific
+- json-rpc
+- vector
+- evm-spec-bridge-protocol
+- evm-spec-bridge-abi-codec
+- evm-spec-bridge-jsonrpc
+- web3-solidity
+
+executables:
+  oracle-stub:
+    main: Main.hs
+    source-dirs: app

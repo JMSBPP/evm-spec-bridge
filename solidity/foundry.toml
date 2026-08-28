@@ -1,0 +1,11 @@
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+libs = []
+solc = "0.8.34"
+evm_version = "prague"
+fuzz = { runs = 16 }
+
+[rpc_endpoints]
+evm_spec_bridge = "${EVM_SPEC_BRIDGE_URL}"

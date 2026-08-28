@@ -1,0 +1,41 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.39.6.
+--
+-- see: https://github.com/sol/hpack
+
+name:           evm-spec-bridge-oracle-stub
+version:        0.1.0.0
+synopsis:       Phase 3 stub oracle serving fixed envelopes
+author:         JMSBPP
+maintainer:     juan.serranotmf@gmail.com
+copyright:      2026 JMSBPP
+license:        BSD-3-Clause
+build-type:     Simple
+
+executable oracle-stub
+  main-is: Main.hs
+  other-modules:
+      Paths_evm_spec_bridge_oracle_stub
+  autogen-modules:
+      Paths_evm_spec_bridge_oracle_stub
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , evm-spec-bridge-abi-codec
+    , evm-spec-bridge-jsonrpc
+    , evm-spec-bridge-protocol
+    , http-types
+    , json-rpc
+    , optparse-applicative
+    , scientific
+    , text
+    , vector
+    , wai
+    , warp
+    , web3-solidity
+  default-language: Haskell2010
