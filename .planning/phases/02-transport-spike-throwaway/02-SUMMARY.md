@@ -156,14 +156,25 @@ Same shape as Phase 1's `gh api` 404. **Rule: every `gh` command here passes
 
 An exchange that produced findings neither session had alone.
 
-- My coercion findings exposed a **live defect in their shipped fixture path**: `dQx`/`dQM` ride as
-  raw JSON numbers just under 2^64.
+- **RETRACTED 2026-08-28 by `gams-evm-transport`:** I recorded that my coercion findings exposed a
+  live defect in their shipped path. **They do not.** Their consumer reads via `forge-std`'s
+  `StdJson.readString` → `vm.parseJsonString` (`StdJson.sol:58`), a **TYPED** cheatcode with its own
+  conversions. The value-dependent ABI inference belongs to the **untyped** `vm.parseJson` only.
+  Re-measured against their committed fixture at `sqrtPriceX96 = 7.92e28` and `liquidity = 1e21`
+  (both ≥ 2^64): all exact, all passing. They had `[SOURCE]`-grade knowledge of a call chain and
+  reported it as `[MEASURED]`; the correction is theirs and I am carrying it because my record
+  repeated the claim.
 - **I under-reported, twice.** I gave them the raw-number hazard but not the string branch, after
   they had told me their fields were strings; and I gave them a coercion table scoped to `vm.rpc`
   without labelling the path, while knowing they were on `parseJson`.
 - Their reproduction produced the `convert_to_bytes` reconciliation and the 20-byte case above.
-- **Their array finding is the most valuable single result of the exchange, and it lands on our
-  Phase 8/9 codegen:** `int256[]` and `uint256[]` have **identical ABI layouts**, so the wire
+- **Their array finding — SCOPED, after their correction — lands on our Phase 8/9 codegen.** It holds
+  on the **untyped path only**: `abi.decode(vm.parseJson(...), (T[]))` and raw `vm.rpc` returndata.
+  On forge-std's **typed** array cheatcodes it is REFUTED — `vm.parseJsonUintArray` fails loudly on
+  a negative element (`failed parsing "-118325008639235460000" as type uint256: parser error`).
+  **We are on the untyped path** — `vm.rpc` returns bytes and we `abi.decode` them ourselves, with
+  no typed cheatcode anywhere — so the requirement stands for us exactly as recorded:
+  `int256[]` and `uint256[]` have **identical ABI layouts**, so the wire
   carries no signal. `[2613128317657530400, -1]` decodes as `int256[]` → `-1`, and as `uint256[]` →
   `2^256-1`, **with no revert either way**. For scalars a wrong-branch decode reverts; for arrays
   it structurally cannot. **Signedness must be asserted by the schema, because the wire will never
