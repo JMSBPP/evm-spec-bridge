@@ -651,3 +651,123 @@ red only because `test_vmRpcReachesWarp` asserts something.
    is genuinely low-level — but the checks are weaker than they look: they measure text, not
    configuration. A better criterion would read effective config (`forge config --json`) rather
    than grep source. Recorded rather than fixed; noted for Phase 3's criteria design.
+
+---
+
+# 02-04-T2 / T5 implementation notes
+
+**Scope of this section: what was BUILT, and the self-checks that prove the instrument
+works.** It is NOT the T3 Content-Type matrix and NOT the T4 envelope result — those are
+recorded separately, inline with the user, under their own headings.
+
+## 02-04-T2 — the stub learned three Content-Type modes
+
+`spike/stub-server/app/Main.hs` now takes an OPTIONAL second positional argument:
+
+```
+usage: stub-server PORT [MODE]
+  PORT is required; there is no default.
+  MODE is the response Content-Type mode; it defaults to `json`.
+  valid MODEs: json, text, none
+    json  -> Content-Type: application/json
+    text  -> Content-Type: text/plain
+    none  -> no Content-Type header at all
+```
+
+Design points, each of them load-bearing for the matrix rather than decorative:
+
+1. **One body function, no mode parameter.** `responseBody :: BL.ByteString -> BL.ByteString`
+   cannot see the mode. Byte-identity across rows is therefore a property of the code, not a
+   promise in a comment. The mode reaches only `modeHeaders`.
+2. **`CtNone` is an EMPTY header list**, not a deletion — `responseLBS` emits the list it is
+   given. Whether warp then adds one of its own is a question for `curl -i`; see below.
+3. **No fallback on a bad mode.** `stub-server 8547 bogus` exits 1 and prints the usage. A
+   typo that silently ran the `json` row while the notes said `text` would invalidate a row
+   with no trace, so this is a hard failure by design.
+4. **The mode is logged at startup AND on every request**, so a transcript can be checked
+   against what actually ran:
+   `[stub] listening on 127.0.0.1:8547 ct-mode=none`
+   `[stub] ct-mode=none path="/" body-bytes=59 echoed-id=7 resp-bytes=102`
+
+`grep -c '0\.0\.0\.0' spike/stub-server/app/Main.hs` → `0`. The loopback-only bind is intact.
+
+### Wire check — `curl -sS -i`, verbatim, one stub run per mode
+
+Request in every case:
+`POST http://127.0.0.1:8547` with `content-type: application/json` and body
+`{"jsonrpc":"2.0","id":7,"method":"spec_health","params":[]}`.
+
+```
+--- mode json ---
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Date: Fri, 28 Aug 2026 13:57:57 GMT
+Server: Warp/3.4.9
+Content-Type: application/json
+
+{"jsonrpc":"2.0","id":7,"result":"0x000000000000000000000000000000000000000000000000000000000000002a"}
+```
+
+```
+--- mode text ---
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Date: Fri, 28 Aug 2026 13:57:57 GMT
+Server: Warp/3.4.9
+Content-Type: text/plain
+
+{"jsonrpc":"2.0","id":7,"result":"0x000000000000000000000000000000000000000000000000000000000000002a"}
+```
+
+```
+--- mode none ---
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Date: Fri, 28 Aug 2026 13:57:57 GMT
+Server: Warp/3.4.9
+
+{"jsonrpc":"2.0","id":7,"result":"0x000000000000000000000000000000000000000000000000000000000000002a"}
+```
+
+**Warp 3.4.9 does NOT insert a default `Content-Type`.** The `none` row is genuinely
+header-absent on the wire — four response headers instead of five, and the only one missing
+is the one under test. This was read off raw `curl -i` output, not inferred from the Haskell.
+No workaround was needed.
+
+### Body byte-identity — by `cmp`, not by eye
+
+```
+cmp body_json body_text  -> exit 0
+cmp body_json body_none  -> exit 0
+cmp body_text body_none  -> exit 0
+
+102 body_json   sha256 8f80ef6a6e50f450fee0f1a6e462e88211030a8f40e2749d820a00bd40166af2
+102 body_text   sha256 8f80ef6a6e50f450fee0f1a6e462e88211030a8f40e2749d820a00bd40166af2
+102 body_none   sha256 8f80ef6a6e50f450fee0f1a6e462e88211030a8f40e2749d820a00bd40166af2
+```
+
+Same length, same hash, `cmp` silent. One variable in the experiment: the header.
+
+## 02-04-T5 — `just spike-matrix`
+
+Added to the root `justfile`. Order and failure policy:
+
+- `./scripts/foundry-pin.sh` runs FIRST and its failure ABORTS with a message saying no row
+  was measured. Same for a failed `stack build` or a stub that never binds the port — those
+  are broken instruments, not measurements.
+- Then, per mode `json`/`text`/`none`: start the stub, wait for the port to accept, print the
+  response headers from `curl -i`, run `cd spike/forge && forge test -vvv`, print
+  `-- MODE <m>: forge test EXIT STATUS = <n>` explicitly, stop the stub, continue.
+- **A non-zero `forge test` does not abort the loop.** The probe has no expected outcome, and
+  aborting on the first red row would discard the two rows that answer the other two
+  questions. The recipe ends with a summary naming which modes passed and which failed.
+- The recipe's own exit status is 0 whenever all three rows RAN. That is deliberate and is
+  stated in its output: a red row is DATA, so the per-row EXIT STATUS lines are the result,
+  not the recipe's exit code.
+
+Implementation detail worth keeping: the recipe runs the built binary DIRECTLY, resolved via
+`stack path --local-install-root`, rather than through `stack run`. Under `stack run`, `$!` is
+stack's wrapper PID and `kill` can leave the listener holding the port, which would silently
+make the NEXT row measure the PREVIOUS row's server.
+
+`just --list` now shows `spike-matrix PORT="8547"`.
