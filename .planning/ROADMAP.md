@@ -154,7 +154,15 @@ Foundry-coercion conformance fixture). Do not build a standing CI lane here out 
   3. A test that points at a server which accepts and never answers goes **red**, not green — the 45s-hang-that-passes failure is impossible at the call site by construction, before any generator exists to enforce it
   4. Rejections carry a closed enumerated guard identity: adding a guard is a compile error at every site that consumes the type, and no free-text guard string is exposed for a consumer to start matching on
   5. Every response carries `protocolVersion`
-**Plans**: TBD
+**Plans**: 7 plans (sequential — execution is INLINE with the user, `parallelization: false`;
+background agents permitted on approval for mechanical work incl. code, checkpoints stay inline)
+- [ ] 03-01-PLAN.md — The three-outcome sum type, closed guard enum, `protocolVersion`; `web3-solidity` added to core and its build cost MEASURED
+- [ ] 03-02-PLAN.md — Type-level: a JSON number or `null` is UNREPRESENTABLE, evidenced by a compile-fail check
+- [ ] 03-03-PLAN.md — The hex-ABI envelope codec, `abi.encode(uint16 version, uint8 tag, bytes body)`
+- [ ] 03-04-PLAN.md — JSON-RPC channel discipline: a rejection can only be built as `Response`, never `ResponseError`
+- [ ] 03-05-PLAN.md — Forge project + the discrimination test: rejection vs dead server by tag byte, zero string matching
+- [ ] 03-06-PLAN.md — Boundary sweep through real `forge test`, six classes, hex only
+- [ ] 03-07-PLAN.md — Wedge fixture and call-site red; summary, deletion checks, and the ledger update in-plan
 
 ### Phase 4: JSON-RPC Service Surface and Fault Taxonomy
 **Goal**: A strict, pure, namespaced JSON-RPC surface exists with fixture methods that exercise all three outcomes end-to-end using no domain code — so that a later domain failure is unambiguously a domain failure.
@@ -260,7 +268,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Repo Skeleton, Component Seams, CI Floor | 9/9 | Complete | 2026-08-28 |
 | 2. Transport Spike (Throwaway) | 5/5 | Complete | 2026-08-28 |
-| 3. Three-Outcome Protocol Core and Hex-ABI Envelope | 0/TBD | In progress | - |
+| 3. Three-Outcome Protocol Core and Hex-ABI Envelope | 0/7 | Planned | - |
 | 4. JSON-RPC Service Surface and Fault Taxonomy | 0/TBD | Not started | - |
 | 5. Warm Server Hardening | 0/TBD | Not started | - |
 | 6. Harness Lifecycle and Ephemeral Endpoint | 0/TBD | Not started | - |

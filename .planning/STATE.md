@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-27)
 ## Current Position
 
 Phase: 3 of 11 (Three-Outcome Protocol Core and Hex-ABI Envelope)
-Plan: 0 of TBD in current phase
-Status: Ready to discuss
+Plan: 0 of 7 in current phase
+Status: Planned — 7 plans, ready to execute
 Last activity: 2026-08-28 — Phase 2 complete (5/5). `vm.rpc` reaches a Haskell warp server, measured. Content-Type not enforced; hex envelope byte-exact on both the 20-byte and 32-byte branches
 
 Progress: [██░░░░░░░░] 18%
