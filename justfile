@@ -42,11 +42,21 @@ image-run:
     docker run --rm evm-spec-bridge:local --version
 
 # THROWAWAY. `spike/` is a self-contained Stack project -- NOT a package in the root
-# stack.yaml -- and it is deleted in plan 02-05 together with this recipe. Nothing
-# outside spike/ may depend on it.
+# stack.yaml -- plus a self-contained forge project under spike/forge. BOTH recipes
+# below (`spike-server` and `spike-test`) are deleted in plan 02-05 along with
+# `rm -rf spike/`. Nothing outside spike/ may depend on either.
 #
 # Server-start and test-run stay SEPARATE recipes: a combined one hides which half
 # failed, and 02-03 specifically needs to observe the Foundry test go red when the
 # server is absent.
 spike-server PORT="8547":
     stack --stack-yaml spike/stack.yaml run stub-server -- {{PORT}}
+
+# The pin assertion runs FIRST and its failure aborts the recipe: a measurement taken
+# on a drifted forge is not a measurement of anything.
+#
+# Note on verbosity: -vvv prints traces for FAILING tests only. To read the raw
+# returndata of a PASSING run, use `cd spike/forge && forge test -vvvv`.
+spike-test:
+    ./scripts/foundry-pin.sh
+    cd spike/forge && forge test -vvv
