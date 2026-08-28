@@ -696,3 +696,49 @@ then it has happened, and undoing it requires a second forbidden push.
 The `-F` vs `-f` distinction was load-bearing in the PUT: `-f` sends strings, and
 `required_approving_review_count=0` as a string 422s. Both were flagged in review and both were
 real.
+
+---
+
+## DIST-04 image publish — and a research claim that did NOT hold
+
+Run `33127963832`, all three jobs green (`seam`, `build`, `image`). Every step of the image job
+succeeded including `Build (always) and push (push events only)`.
+
+Published, and pulled **anonymously with an empty `DOCKER_CONFIG`**:
+
+```
+ghcr.io/jmsbpp/evm-spec-bridge:develop                    129MB
+ghcr.io/jmsbpp/evm-spec-bridge:sha-b3c5621...             129MB
+$ docker run --rm ghcr.io/jmsbpp/evm-spec-bridge:develop --version
+evm-spec-bridge-transport 0.1.0.0
+```
+
+### The predicted manual gate did not materialise
+
+RESEARCH.md and plan `01-08-T6` both state that a newly published GHCR package is **private by
+default**, requiring a one-time irreversible manual UI flip that no workflow can perform. It was
+carried as the single human-action checkpoint in Phase 1.
+
+**Observed: the package was public immediately.** Two anonymous pulls, fresh empty `DOCKER_CONFIG`
+directories confirmed to contain no credentials, both succeeded.
+
+I do not know the mechanism and am not going to invent one — plausibly GHCR now inherits visibility
+from a public linked repository when published via `GITHUB_TOKEN` with
+`org.opencontainers.image.source` set, but that is a guess and is recorded as such. What is
+measured is the outcome, not the cause.
+
+The claim was sound research (GitHub's own docs say private-by-default) and it was simply not true
+for this configuration. Worth noting the asymmetry: this is a predicted blocker that failed to
+appear, which is the *harmless* direction. Had it gone the other way — assuming public and finding
+private — the consumer's first pull would have 403'd with no obvious cause.
+
+### The 404 that meant something else entirely
+
+`gh api user/packages/container/evm-spec-bridge` first returned **404 Package not found**, which
+reads as "nothing was published". After refreshing scope it returned **403: You need at least
+read:packages scope**. The 404 was an authorization artefact, not a statement about existence.
+
+Had the verdict been taken from that 404, the conclusion would have been "the image job silently
+failed to publish" — about a package that was published, public, and pullable. The unambiguous test
+was the credential-free `docker pull`, which asks the question directly instead of asking GitHub's
+API a question it was not authorized to answer.
