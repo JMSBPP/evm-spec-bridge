@@ -21,6 +21,7 @@ COPY components/protocol/evm-spec-bridge-protocol.cabal      components/protocol
 COPY components/abi-codec/evm-spec-bridge-abi-codec.cabal    components/abi-codec/
 COPY components/jsonrpc/evm-spec-bridge-jsonrpc.cabal        components/jsonrpc/
 COPY components/registry/evm-spec-bridge-registry.cabal      components/registry/
+COPY components/oracle-stub/evm-spec-bridge-oracle-stub.cabal components/oracle-stub/
 COPY components/transport/evm-spec-bridge-transport.cabal    components/transport/
 COPY components/codegen/evm-spec-bridge-codegen.cabal        components/codegen/
 COPY components/cfmm-adapter/evm-spec-bridge-cfmm-adapter.cabal components/cfmm-adapter/
