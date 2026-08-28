@@ -409,3 +409,91 @@ gate is green again now that the spike's .cabal is committed:
 $ ./scripts/hpack-drift.sh
 PASS: committed .cabal files match package.yaml
 ```
+
+---
+
+## 02-02-T4 — the stub answers, AND it listens nowhere else
+
+Run inline with the user, independently of the agent's own verification.
+
+### Two claims, two instruments, because one has a blind spot
+
+| Instrument | Question it answers | Result |
+|---|---|---|
+| `curl` on localhost | does it answer? | HTTP 200, `id:7` echoed, `0x…2a` result |
+| `ss -ltn` | **where** is it bound? | `LISTEN 0 4096 127.0.0.1:8547 0.0.0.0:*` |
+| `curl` to the host's LAN IP | is it reachable off-loopback? | **refused, exit 7** |
+
+`curl` on localhost cannot distinguish a correct `127.0.0.1` bind from a wrong `0.0.0.0` bind — a
+server bound to all interfaces answers that exact request identically. Hence `ss`, and hence the
+third row.
+
+The `0.0.0.0:*` in the `ss` output is the **peer** column (any remote may connect *to the socket*);
+the local bind is `127.0.0.1:8547`. Read the columns, not the substring.
+
+**Negative check, the decisive one:**
+```
+host global IP: 192.168.1.37
+curl: (7) Failed to connect to 192.168.1.37 port 8547 — Could not connect to server
+```
+Refused from the LAN interface while answering on loopback. This is the evidence `curl` alone
+could not produce.
+
+### Payload arithmetic, computed not eyeballed
+
+```
+echoed id      : 7   (sent 7)
+hex chars      : 64
+even nibbles   : True
+decodes to     : 42
+== 32 bytes    : True
+```
+
+Even nibble count matters: an odd-length hex string falls into a DIFFERENT Foundry coercion branch
+(`PITFALLS.md:82`), which would silently invalidate the whole spike.
+
+### Teardown
+Port released after stop; `git status --porcelain` clean.
+
+---
+
+## Two findings from 02-02 worth carrying
+
+### 1. The payload literal in 02-02-PLAN.md was WRONG — 62 characters, not 64
+
+The plan's `<action>` block printed `0000…002a` with 60 zeros. Correct is `printf '%064x' 42` =
+62 zeros + `2a`. Measured:
+
+```
+plan literal length: 62
+correct length:      64
+```
+
+**The plan's own instruction caught the plan's own error** — the `<action>` said "verify the nibble
+count is EVEN and the total is 64 hex characters before committing — count it, do not assume." The
+executing agent counted, found 62, and used the correct value. Had the instruction said only "use
+this literal", an odd-nibble payload would have shipped and the spike would have measured the wrong
+coercion branch.
+
+This is an argument for writing the *invariant* alongside the value, not the value alone.
+
+### 2. The spike is NOT fully isolated — `hpack-drift.sh` globs `*.cabal` repo-wide
+
+02-02-T1 claimed the isolated-project layout makes the spike invisible to the root project.
+**Partly false.** `scripts/hpack-drift.sh:11` runs:
+
+```
+git status --porcelain -- '*.cabal'
+```
+
+That glob is repo-wide, so the freshly generated `spike/stub-server/spike-stub-server.cabal` turned
+the drift gate RED until it was committed. Verified after the fix: `PASS: committed .cabal files
+match package.yaml`, exit 0.
+
+**Accurate statement of the isolation:** the spike is invisible to `stack build`, to
+`stack-core.yaml`'s seam guard, and to `ci.yml` — but **visible to the drift gate**. Deletion is
+still `rm -rf spike/`, and the .cabal goes with it, so 02-05 is unaffected in substance. But
+02-05-T2 must confirm the drift gate is green AFTER deletion, not merely that the tree is clean.
+
+Recorded rather than quietly corrected: an isolation claim that was 3/4 true is exactly the kind of
+thing that gets remembered as 4/4.
