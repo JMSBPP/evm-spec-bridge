@@ -212,6 +212,7 @@ commit — and not worth changing, but the message would mislead anyone who hit 
 | pin still byte-identical to the consumer's | IDENTICAL |
 | `just --list \| grep -c spike` | 0 recipes remaining |
 | residue outside `.planning/` | none |
+| **CI run `33178908276`, post-deletion** | **seam / build / image all success** |
 
 **The isolation claim was directionally right and literally wrong.** The spike genuinely never
 touched `stack.yaml`, `stack-core.yaml`, the components, or `ci.yml` — the deletion diff is nine
