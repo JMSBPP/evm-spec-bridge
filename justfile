@@ -29,3 +29,13 @@ drift:
 # callers, so the two sides cannot drift apart.
 foundry-pin:
     ./scripts/foundry-pin.sh
+
+# THROWAWAY. `spike/` is a self-contained Stack project -- NOT a package in the root
+# stack.yaml -- and it is deleted in plan 02-05 together with this recipe. Nothing
+# outside spike/ may depend on it.
+#
+# Server-start and test-run stay SEPARATE recipes: a combined one hides which half
+# failed, and 02-03 specifically needs to observe the Foundry test go red when the
+# server is absent.
+spike-server PORT="8547":
+    stack --stack-yaml spike/stack.yaml run stub-server -- {{PORT}}

@@ -360,3 +360,52 @@ Resolved by committing it, which is the repo's stated policy for generated .caba
 lives inside `spike/`, so 02-05's deletion is still `rm -rf spike/` -- but the claim "the spike is
 invisible to the root project" is now precisely: invisible to `stack build`, `stack-core.yaml` and
 `ci.yml`, NOT invisible to the repo-wide `*.cabal` glob in the drift gate.
+
+---
+
+## 02-02-T5 — the `spike-server` recipe, and one criterion that stays UNVERIFIED
+
+Added to `justfile`:
+
+```
+spike-server PORT="8547":
+    stack --stack-yaml spike/stack.yaml run stub-server -- {{PORT}}
+```
+
+with a comment above it naming 02-05 as where both the directory and the recipe are removed, and
+stating why server-start and test-run stay separate recipes.
+
+**`just --list | grep spike-server` is UNVERIFIED.** `just` is not installed on this box:
+
+```
+$ which just
+which: no just in (...)
+```
+
+This is the SAME honest gap already recorded for 02-01-T5 -- the justfile is written and read as
+the CI-mirroring source of truth, but no `just` binary has ever executed it here. What WAS verified
+is the recipe's payload: line 41 was extracted from the file, `{{PORT}}` substituted with the
+default, and the resulting command run directly.
+
+```
+$ sed -n '41p' justfile | sed 's/^ *//; s/{{PORT}}/8547/'
+stack --stack-yaml spike/stack.yaml run stub-server -- 8547
+
+$ curl ... -o /dev/null -w 'http=%{http_code}\n' ...
+http=200
+$ ss -ltn | grep 8547
+LISTEN 0      4096       127.0.0.1:8547       0.0.0.0:*
+```
+
+So: the COMMAND the recipe runs is verified to start a listener on `127.0.0.1:8547`. That `just`
+parses the recipe, exposes it in `--list`, and expands `{{PORT}}` as expected is asserted from the
+justfile's syntax alone and remains untested. The recipe body uses 4-space indentation, matching
+every existing recipe in the file.
+
+After the process was stopped the port was released (`ss -ltn | grep 8547` exit 1), and the drift
+gate is green again now that the spike's .cabal is committed:
+
+```
+$ ./scripts/hpack-drift.sh
+PASS: committed .cabal files match package.yaml
+```
