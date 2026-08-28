@@ -84,9 +84,18 @@ below with their disposition, because deleting them would erase the record of wh
      all**, recorded as a three-row table. Retires `ARCHITECTURE.md:612`, the last LOW-confidence
      transport item
   3. The Foundry version is pinned in a mechanism that **can fail** — a shell-sourceable
-     `.github/foundry-version` carrying release tag, release commit and installer commit, asserted
-     by `forge --version | grep -qF "$FOUNDRY_COMMIT"` in **both CI and the local runner script**,
-     and machine-readable by the Phase 8 header generator.
+     `.github/foundry-version` carrying release tag, release commit and installer commit, and
+     machine-readable by the Phase 8 header generator. The two sides assert different things, and
+     each asserts only what it can actually see:
+     - **Locally** (where `forge` exists): `forge --version | grep -qF "$FOUNDRY_COMMIT"` — the
+       binary assertion, and the one that makes a measurement trustworthy. It runs before any
+       measurement is recorded
+     - **In CI** (where `forge` is deliberately NOT installed): well-formedness only — the file is
+       shell-sourceable, all three values are present, and `FOUNDRY_COMMIT` is 40 hex characters.
+       Installing forge purely to assert it is the forge just installed would be circular
+     A drift check against the consumer's pin is deliberately NOT done here: their pin file is
+     currently public only on `JMSBPP/cfmm-vol-markets@develop`, an unpromoted fork branch, and
+     gating our build on it is Phase 10's concern, not the spike's.
      *Supersedes the original criterion 3, which required `foundry.toml` to pin the version.
      Measured on the pinned binary: `forge config --json` emits 111 keys and the only version-ish
      key is `evm_version` — the EVM hardfork. `foundry.toml` cannot pin a forge binary.*
@@ -108,7 +117,13 @@ below with their disposition, because deleting them would erase the record of wh
     criterion 1, since the test decodes the value anyway
   - *`vm.rpcJson` availability* — **MEASURED** absent at `PITFALLS.md:134-137`
 
-**Plans**: TBD
+**Plans**: 5 plans (sequential — execution is INLINE with the user, `parallelization: false`,
+background agents forbidden)
+- [ ] 02-01-PLAN.md — The Foundry pin: `.github/foundry-version`, the assertion that can go red, and a negative test that makes it fire
+- [ ] 02-02-PLAN.md — The throwaway warp stub, as a self-contained Stack project so deletion is `rm -rf spike/`
+- [ ] 02-03-PLAN.md — Minimal forge project and the first green `vm.rpc` test — plus proof the green is not vacuous
+- [ ] 02-04-PLAN.md — Content-Type matrix (json / text-plain / absent) and the byte-exact hex-envelope round-trip
+- [ ] 02-05-PLAN.md — Summary, delete the spike, and update ROADMAP/REQUIREMENTS/STATE in this plan
 
 **Note**: The consumer's pin is confirmed at `.github/foundry-version` (their CI-05, commit
 `dddb26b`): `FOUNDRY_VERSION=v1.5.1`, `FOUNDRY_COMMIT=b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2`.
