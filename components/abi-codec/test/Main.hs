@@ -9,7 +9,7 @@ import Bridge.AbiCodec.Envelope
   , decodeEnvelope
   , encodeEnvelope
   )
-import Bridge.AbiCodec.Hex (hexBytes, hexOfBytes, hexText)
+import Bridge.AbiCodec.Hex (HexError (..), hexBytes, hexOfBytes, hexOfText, hexText)
 import Bridge.Protocol
   ( FaultCode (..)
   , GuardId (..)
@@ -20,7 +20,7 @@ import Bridge.Protocol
 import qualified Data.ByteString as BS
 import qualified Data.Solidity.Abi.Codec as Abi
 import Data.Solidity.Prim.Bytes (Bytes)
-import Data.Solidity.Prim.Int (UIntN)
+import Data.Solidity.Prim.Int (IntN, UIntN)
 import Data.Solidity.Prim.Tuple ()
 import qualified Data.Text as T
 import Test.QuickCheck
@@ -55,6 +55,11 @@ tests =
         forAll genSpecOutcome versionSurvives
     , testCase "tag 0x00 is rejected" tagZeroRejected
     , testCase "golden vector" goldenVector
+    , testCase "boundary vectors encode" boundaryVectors
+    , testCase "odd input refused" oddInputRefused
+    , testCase "odd input refused, long" oddInputRefusedLong
+    , testProperty "encoder never emits odd" $
+        forAll genSpecOutcome encoderNeverOdd
     ]
 
 genSpecOutcome :: Gen (SpecOutcome BS.ByteString)
@@ -119,3 +124,45 @@ goldenVector = do
   case encodeEnvelope v of
     Left err -> fail ("golden encode failed: " ++ show err)
     Right h -> hexText h @?= goldenHex
+
+boundaryVectors :: IO ()
+boundaryVectors = do
+  let bodies =
+        [ SpecSuccess (Abi.encode (0 :: UIntN 256) :: BS.ByteString)
+        , SpecSuccess (Abi.encode (18446744073709551616 :: UIntN 256) :: BS.ByteString)
+        , SpecSuccess (Abi.encode (-5 :: IntN 256) :: BS.ByteString)
+        , SpecSuccess BS.empty
+        , SpecSuccess (BS.replicate 32 0xcd)
+        ]
+  mapM_ checkVec (zip ([0, 1, 2, 3, 4] :: [Int]) bodies)
+  where
+    checkVec (_, o) =
+      case encodeEnvelope o of
+        Left err -> fail (show err)
+        Right h -> do
+          let t = hexText h
+          T.isPrefixOf "0x" t @?= True
+          even (T.length t - 2) @?= True
+
+oddInputRefused :: IO ()
+oddInputRefused =
+  case hexOfText "0xabc" of
+    Left (OddNibbleCount 3) -> pure ()
+    Left _ -> fail "wrong OddNibbleCount"
+    Right _ -> fail "expected Left"
+
+oddInputRefusedLong :: IO ()
+oddInputRefusedLong =
+  case hexOfText ("0x" <> T.replicate 39 (T.singleton 'a')) of
+    Left (OddNibbleCount 39) -> pure ()
+    Left _ -> fail "wrong OddNibbleCount"
+    Right _ -> fail "expected Left"
+
+encoderNeverOdd :: SpecOutcome BS.ByteString -> Property
+encoderNeverOdd o =
+  case encodeEnvelope o of
+    Left _ -> property True
+    Right h ->
+      let t = hexText h
+          raw = hexBytes h
+       in even (T.length t - 2) .&&. (BS.length raw `mod` 32 == 0)
