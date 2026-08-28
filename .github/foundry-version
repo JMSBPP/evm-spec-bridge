@@ -1,0 +1,48 @@
+# THE Foundry pin for this repository. Requirement DIST-06.
+#
+# This file is the pin. It is not a hint, a default or a suggestion: `scripts/foundry-pin.sh`
+# asserts against it and exits non-zero when the box disagrees. Moving the toolchain therefore
+# costs a reviewable commit to this file -- there is no way to drift the measured binary without
+# a diff someone can read.
+#
+# WHY IT IS NOT IN foundry.toml: measured 2026-08-28 on the pinned binary, `forge config --json`
+# emits 111 keys and not one of them names the forge/foundry toolchain. The only version-bearing
+# key is `evm_version` (value `prague`), which is the EVM hardfork, not the binary. This is
+# structural: forge reads foundry.toml only once it is already running, so that file cannot
+# constrain its own reader. A pin has to be somewhere that can fail, hence a script.
+#
+# THESE VALUES MUST MATCH THE CONSUMER'S, byte-for-byte:
+#   /home/jmsbpp/cfmms-playground/cfmm-wt/vol-markets/.github/foundry-version
+#   repo `cfmm-vol-markets`, their requirement CI-05.
+# We produce Solidity that they compile. If their forge and our forge differ, every number we
+# measure here is scoped to a binary they never run, and the divergence surfaces as a mystery in
+# their gate rather than as a red in ours.
+#
+# FORMAT: shell-sourceable KEY=value, and it must stay that way -- no spaces around `=`, no
+# command substitution, comments only on their own lines. Two consumers depend on that:
+#   scripts/foundry-pin.sh              -- sources it directly (`. ./.github/foundry-version`)
+#   the Solidity header generator       -- from Phase 8, stamps the version into generated code
+# KEY=value costs a few lines to parse in Haskell and zero in shell. TOML or JSON would invert
+# that cost onto the shell side, which is the awkward direction.
+#
+# DELIBERATELY NOT COPIED from the consumer: their per-pin `FOUNDRY_DIR`, their `flock`, and their
+# install stamp file. That machinery exists because `cfmm-build` is a PERSISTENT self-hosted
+# runner, where installing into `$HOME/.foundry` would rewrite the box's default forge on every
+# push and two concurrent jobs would race over the same directory. Our gate runs on hosted
+# EPHEMERAL runners: a fresh VM cannot have a colliding forge and has no second job sharing its
+# filesystem. Lifting their plumbing would be applying a correct mechanism outside the conditions
+# that made it correct.
+
+# The release tag -- WHAT to install. Passed to `foundryup --install "${FOUNDRY_VERSION#v}"`.
+# On its own this defends nothing: it names a moving target.
+FOUNDRY_VERSION=v1.5.1
+
+# The commit the pinned release was built from -- THIS is the assertion. A tag can in principle be
+# re-cut against different source, and "1.5.1" alone would not notice. `forge --version` prints
+# this SHA, so a box either matches it or goes red.
+FOUNDRY_COMMIT=b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2
+
+# The foundryup INSTALLER itself -- an unpinned installer is an unpinned supply chain for the
+# pinned toolchain. Pinning the release while letting the thing that fetches it float leaves the
+# fetch step free to change what "v1.5.1" resolves to.
+FOUNDRYUP_INSTALLER_COMMIT=a27902ef04dcb43061fabf343365cb5afc95fc48
