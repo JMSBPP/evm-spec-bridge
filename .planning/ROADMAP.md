@@ -28,7 +28,7 @@ deliberate: it is what makes the pressure to guess evaporate.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Repo Skeleton, Component Seams, CI Floor** - Seven Stack components build green on hosted CI with the cfmm seam enforced by a spec-less config, and a minimal container image publishes to GHCR
-- [ ] **Phase 2: Transport Spike (Throwaway)** - A green `forge test` proves `vm.rpc` reaches a Haskell service against the consumer's exact pinned Foundry version
+- [ ] **Phase 2: Transport Spike (Throwaway)** - A green `forge test` proves `warp` can serve Foundry's alloy client on the consumer's pinned Foundry version, and the toolchain is pinned in a form that can fail
 - [ ] **Phase 3: Three-Outcome Protocol Core and Hex-ABI Envelope** - Success, rejection and transport failure become distinguishable by construction, byte-exact through Foundry's coercion
 - [ ] **Phase 4: JSON-RPC Service Surface and Fault Taxonomy** - A strict, pure, namespaced method surface with fixture methods that exercise all three outcomes with zero domain code
 - [ ] **Phase 5: Warm Server Hardening** - One warm process survives a full parallel fuzz run without leaking, wedging, or filing a spec bug as a transport failure
@@ -63,17 +63,62 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 01-09-PLAN.md — DIST-03 made structural: branch protection, a refused push, the promotion PR, README
 
 ### Phase 2: Transport Spike (Throwaway)
-**Goal**: Prove the one mechanism the entire Core Value rests on — that `vm.rpc` forwards an arbitrary `spec_*` method to a plain Haskell HTTP service and that a cheatcode revert can be converted into a value — against the Foundry version the consumer actually pins. Deliberately smaller than it wants to be: no registry, no codegen, no domain, no abstraction around an unproven mechanism. Everything built here is discarded.
+**Goal**: Confirm that a Haskell **`warp`** server can be the thing on the other end of `vm.rpc`,
+and pin the Foundry toolchain in a form that can go red. Deliberately smaller than it wants to be:
+no registry, no codegen, no domain, no abstraction over an unproven mechanism. Everything built
+here is discarded except the pin.
 **Depends on**: Phase 1
 **Requirements**: DIST-06
+
+**AMENDED 2026-08-28 — three of the original four criteria were already satisfied before the phase
+began, and the fourth named a file that cannot satisfy it.** The original criteria are preserved
+below with their disposition, because deleting them would erase the record of what was checked.
+
 **Success Criteria** (what must be TRUE):
-  1. `forge test` passes calling `vm.rpc` against a stub Haskell server returning a hardcoded `"0x" <> hex(...)` payload, on the consumer's confirmed `forge --version` — not on `master`, not on whatever is installed by default
-  2. It is known and written down whether Solidity `try`/`catch` works against the cheatcode address or whether the low-level `address(vm).call` form is required — the project's lowest-confidence carried assumption is retired by running code, not by reading source
-  3. `foundry.toml` pins an exact Foundry version, and that version string is available to be stamped into later generated artifacts
-  4. The pinned version's return-path shape is recorded: whether it wraps the coerced payload as `abi.encode(bytes)` or returns it unwrapped, since `master` and `1.5.1-stable` disagree and the Solidity decode path is a function of that answer
+  1. `forge test` passes calling `vm.rpc` against a stub **Haskell `warp`** server returning a
+     hardcoded `"0x" <> hex(...)` payload, on the consumer's confirmed `forge --version`
+     (`v1.5.1` / `b0a9dd9`). Every prior measurement was taken against a non-Haskell stub oracle
+     in `/tmp/orctest` (`PITFALLS.md:7`); **warp has never been on the other end of an alloy call**
+  2. The response `Content-Type` question is answered by observation, not by reading alloy source:
+     identical bodies served as `application/json`, as `text/plain`, and with **no Content-Type at
+     all**, recorded as a three-row table. Retires `ARCHITECTURE.md:612`, the last LOW-confidence
+     transport item
+  3. The Foundry version is pinned in a mechanism that **can fail** — a shell-sourceable
+     `.github/foundry-version` carrying release tag, release commit and installer commit, asserted
+     by `forge --version | grep -qF "$FOUNDRY_COMMIT"` in **both CI and the local runner script**,
+     and machine-readable by the Phase 8 header generator.
+     *Supersedes the original criterion 3, which required `foundry.toml` to pin the version.
+     Measured on the pinned binary: `forge config --json` emits 111 keys and the only version-ish
+     key is `evm_version` — the EVM hardfork. `foundry.toml` cannot pin a forge binary.*
+  4. The hex-envelope claim is confirmed end-to-end against warp: a `0x`-prefixed even-length hex
+     string survives Foundry's `json_value_to_token` coercion **byte-exact**. Everything from
+     Phase 3 onward rests on this (`PITFALLS.md:82`) and it has never been tested against our stack
+  5. The spike is deleted at phase end; only `.github/foundry-version` and the recorded
+     measurements survive
+
+**Criteria satisfied before this phase began — consumed, NOT re-derived:**
+  - *Original criterion 2 (`try`/`catch` against the cheatcode address)* — **MEASURED**. The
+    `catch` branch fires; errdata carries `CheatcodeError(string)` = `0xeeaa9e6f` and decodes
+    non-empty. Non-empty data bearing the cheatcode's own selector rules out a caller-side
+    `extcodesize` failure, so the result is conclusive. See PROJECT.md "Resolved since
+    initialization". The low-level `address(vm).call` form remains the conservative default
+  - *Original criterion 4 (return-path shape)* — **MEASURED** at `PITFALLS.md:103`: on
+    `1.5.1-stable` the raw returndata is `abi.encode(<coerced value>)`, **not**
+    `abi.encode(<bytes>)`. `master` wraps; 1.5.1 does not. Re-confirmed as a byproduct of
+    criterion 1, since the test decodes the value anyway
+  - *`vm.rpcJson` availability* — **MEASURED** absent at `PITFALLS.md:134-137`
+
 **Plans**: TBD
 
-**Note**: The consumer has volunteered to run the `try`/`catch` experiment and report gate evidence. Scope this spike to what *this* repo must prove and consume their result rather than duplicating it.
+**Note**: The consumer's pin is confirmed at `.github/foundry-version` (their CI-05, commit
+`dddb26b`): `FOUNDRY_VERSION=v1.5.1`, `FOUNDRY_COMMIT=b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2`.
+This is byte-identical to the binary every measured finding is scoped to, so the "blocking input"
+recorded in STATE.md is closed. **Mirror their pin idiom, not their install plumbing** — their
+`flock`/stamp/per-pin-directory machinery exists for a *persistent* self-hosted runner and solves
+a collision hosted ephemeral runners cannot have.
+
+**Note**: The permanent version of criteria 1, 2 and 4 is **Phase 8 criterion 4** (the
+Foundry-coercion conformance fixture). Do not build a standing CI lane here out of throwaway code.
 
 ### Phase 3: Three-Outcome Protocol Core and Hex-ABI Envelope
 **Goal**: The Core Value becomes mechanical. Spec success, spec rejection and transport failure become three constructors no partial function can turn into one another, and the wire representation survives Foundry's value-dependent JSON-to-ABI coercion byte-exact. This is the phase that must not be rushed — every decision in it is rewrite-forcing if omitted.
@@ -253,3 +298,16 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
   Planners must therefore prefer many small tasks over few large ones, place explicit checkpoints
   wherever a non-obvious choice is made, and never bundle independent decisions into one task.
   `plan_checker` stays disabled — the user is the check.
+  **STRENGTHENED at Phase 2 (2026-08-28):** every decision must carry a **reference pointer** — a
+  `file:line`, a source URL, or a measurement, never recall. **Background agents are NOT
+  permitted**, and plans must encode that so a future executor cannot quietly delegate. **The
+  executing skill owns execution AND the STATE.md / ROADMAP.md update, inline** — added because
+  Phase 1's ledger was never updated (ROADMAP read `0/9` while nine plans sat committed; patched
+  by hand in `41eb40c`). The global `CLAUDE.md` two-step reviewer gate is **deliberately overridden
+  for this project by user decision — the user is the review**; no reviewer agents.
+- **The JSON-RPC envelope comes from `json-rpc-1.1.2`, the HTTP transport is ours** (decided during
+  Phase 2 discussion). `Network.JSONRPC.Data` supplies `Request`/`Response`/`ErrorObj`/`Id`/`Ver`
+  and the standard `-32601`/`-32602`/`-32700` constructors; `Network.JSONRPC.Interface` is rejected
+  because its only transports are TCP-over-conduit and cannot answer Foundry's HTTP POST. The
+  package is in LTS 24.55, so no `extra-deps` entry is needed. **This supersedes PROJECT.md's
+  "the envelope is hand-rolled" Key Decision**, which must be amended there.
