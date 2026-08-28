@@ -293,6 +293,14 @@ plan around it silently.
   phases will be planned against a stale model.
 - **Amending PROJECT.md's Key Decisions** for the `json-rpc` adoption — needed, but a PROJECT-level
   edit rather than a Phase 2 deliverable.
+- **Phase 3 boundary-value inputs, contributed by `gams-evm-transport` (2026-08-28).** Their
+  published artifact carries `uint160`/`uint128` as decimal STRINGS. `PITFALLS.md:63` already
+  measures that branch — a numeric string **under** u64 stays Solidity `string`, at or **above**
+  u64 becomes `uint256`/`int256` — so quoting does not escape the coercion, it only relocates the
+  same 2^64 boundary. Phase 3 criterion 2 should therefore measure **three encodings of the same
+  value** — `0x` hex blob, decimal string, raw number — across the boundary classes, not just the
+  hex path. Their open ask, still genuinely [UNVERIFIED] here: **arrays and signed values**.
+  Report results back to them.
 - **Removing `libcairo2-dev` from `ci.yml`** if upstream's two-package restructure merges.
 - **Opening the fork → upstream promotion PR** for Phase 1's work; branch protection now requires
   `seam`, `build`, `image`.
