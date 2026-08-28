@@ -1,0 +1,25 @@
+name:        spike-stub-server
+version:     0.1.0.0
+synopsis:    THROWAWAY hardcoded JSON-RPC-shaped responder for the Phase 2 transport spike
+license:     BSD-3-Clause
+author:      JMSBPP
+maintainer:  juan.serranotmf@gmail.com
+copyright:   2026 JMSBPP
+
+ghc-options:
+- -Wall
+
+dependencies:
+- base >= 4.7 && < 5
+
+executables:
+  stub-server:
+    main:        Main.hs
+    source-dirs: app
+    dependencies:
+    - warp
+    - wai
+    - http-types
+    - aeson
+    - bytestring
+    - text

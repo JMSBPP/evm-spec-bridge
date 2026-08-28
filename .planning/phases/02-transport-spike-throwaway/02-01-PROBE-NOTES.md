@@ -232,3 +232,36 @@ exactly what makes bare `gh` commands ambiguous here.
 DIST-06's mechanism exists and has been observed to fail. Surviving artifacts:
 `.github/foundry-version`, `scripts/foundry-pin.sh`, one `justfile` recipe, one CI step.
 Everything else in Phase 2 is throwaway.
+
+---
+
+## 02-02-T2 — the spike is a self-contained Stack project
+
+`spike/` has its own `stack.yaml` and is NOT listed in the root `stack.yaml`. Consequence: CI's
+`build` job never compiles warp/wai or their transitive closure, and deletion in 02-05 is
+`rm -rf spike/` plus one `justfile` recipe rather than a five-step cleanup (remove packages entry,
+regenerate .cabal, re-run the drift gate, re-run the seam guard). Code that is annoying to delete
+does not get deleted -- it gets adopted.
+
+The snapshot block is byte-identical to the root's, confirmed mechanically:
+
+```
+$ diff <(sed -n '/^snapshot:/,/^  size:/p' stack.yaml) \
+       <(sed -n '/^snapshot:/,/^  size:/p' spike/stack.yaml)
+$ echo $?
+0
+```
+
+`extra-deps: []` -- warp-3.4.9, wai-3.2.5, http-types-0.12.6, aeson, bytestring and text are all
+present in LTS 24.55, so the spike pins nothing of its own.
+
+`spike/` is deliberately NOT in `.gitignore`; the files are committed so the 02-05 deletion shows up
+as a visible diff:
+
+```
+$ git check-ignore spike/README.md; echo "exit=$?"
+exit=1                                   <- not ignored
+
+$ git diff --exit-code stack.yaml stack-core.yaml .github/workflows/ci.yml; echo "exit=$?"
+exit=0                                   <- root project untouched
+```
