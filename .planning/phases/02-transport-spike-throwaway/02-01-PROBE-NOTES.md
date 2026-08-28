@@ -45,3 +45,22 @@ read; `forge --version | grep -qF "$FOUNDRY_COMMIT" || exit 1` is a proposition 
 That is what `scripts/foundry-pin.sh` (02-01-T3) is.
 
 ---
+
+## Script sanity check during 02-01-T3 — NOT the T4 negative test
+
+**This does NOT satisfy 02-01-T4.** T4 is a blocking human-verify checkpoint that must be run on
+the REPO tree with the user, with restoration proved by `git diff --exit-code`. What follows was
+run in a throwaway `/tmp` copy of `scripts/` + `.github/foundry-version` during T3, purely to
+avoid committing an assertion that cannot fail. The repo tree was never mutated.
+
+All four failure modes fire, and each fires DIFFERENTLY:
+
+| Perturbation (scratch copy) | Exit | Message class |
+|---|---|---|
+| last char of `FOUNDRY_COMMIT` changed to `…a3` | 1 | "the forge on this box is NOT the pinned toolchain", quotes EXPECTED commit and full ACTUAL `forge --version` |
+| `FOUNDRY_VERSION=` line deleted | 1 | `FOUNDRY_VERSION: ERROR: FOUNDRY_VERSION is unset or empty in .github/foundry-version` — a missing-variable error, not a mismatch |
+| `forge` removed from `PATH` | 1 | "could not run \`forge --version\` (exit status 127) … This is NOT a version mismatch" |
+| `FOUNDRY_COMMIT` shortened to `b0a9dd9` (`--check-format`) | 1 | "not a full 40-character lowercase hex SHA" |
+
+The third row is the one the two-variable capture buys: a `forge` that cannot start reports as
+absent, not as the wrong version.
