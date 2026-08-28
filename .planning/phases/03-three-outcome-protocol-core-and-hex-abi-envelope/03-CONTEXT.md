@@ -194,9 +194,12 @@ the test still passes*. The 45 s timeout is hardcoded and unreachable from `foun
 ## Existing Code Insights
 
 ### Reusable Assets
-- **`components/protocol/src/Bridge/Protocol.hs`** — placeholder; becomes the result sum type,
-  guard enum and `protocolVersion`. Currently `dependencies: [base]` only.
-- **`components/abi-codec/src/Bridge/AbiCodec.hs`** — placeholder; becomes the hex + ABI encoding.
+- **`components/protocol/src/Bridge/Protocol.hs`** — **NO LONGER A PLACEHOLDER as of 03-01.**
+  Contains `SpecOutcome` (3 constructors), `GuardId` (7 named guards, `Enum`/`Bounded`),
+  `FaultCode`, and `protocolVersion = 1`. Imports only `Data.Word` — it must stay free of
+  `Data.Aeson` and `Data.Solidity`. `-Wincomplete-patterns` is on and clean.
+- **`components/abi-codec/src/Bridge/AbiCodec.hs`** — still a placeholder; becomes the hex + ABI
+  encoding in 03-03. **Its `package.yaml` now depends on `web3-solidity`** (added 03-01).
 - **`components/jsonrpc/src/Bridge/JsonRpc.hs`** — placeholder; its comment was **corrected
   2026-08-28** (it claimed the envelope was hand-rolled).
 - **`components/protocol/test/Main.hs`** — the `tasty` scaffold, already running in the gate.

@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-27)
 ## Current Position
 
 Phase: 3 of 11 (Three-Outcome Protocol Core and Hex-ABI Envelope)
-Plan: 0 of 7 in current phase
-Status: Planned — 7 plans, ready to execute
-Last activity: 2026-08-28 — Phase 2 complete (5/5). `vm.rpc` reaches a Haskell warp server, measured. Content-Type not enforced; hex envelope byte-exact on both the 20-byte and 32-byte branches
+Plan: 1 of 7 in current phase (03-01 COMPLETE — summary written, pushed at 5cedec5)
+Status: In progress — next is 03-02 (type-level: JSON number/null unrepresentable)
+Last activity: 2026-08-28 — 03-01 complete. Three-outcome sum type + closed guard enum built; `web3-solidity` added to abi-codec and its cold-build cost MEASURED (+589 s CPU, +85%); seam negative test fires unmodified with a third-party dep in core
 
 Progress: [██░░░░░░░░] 18%
 
@@ -45,6 +45,7 @@ Progress: [██░░░░░░░░] 18%
 |-------|-------|-------|----------|
 | 1 — Repo Skeleton, Component Seams, CI Floor | 9/9 | 1 session | — |
 | 2 — Transport Spike (Throwaway) | 5/5 | 1 session | — |
+| 3 — Three-Outcome Protocol Core | 1/7 | in progress | — |
 
 **Measured CI cost (replaces all estimates):**
 - seam job 125 s · build job 440 s · cold spec compile 302 s hosted / 281 s local
@@ -68,6 +69,14 @@ Full log in PROJECT.md Key Decisions. Affecting current work:
 - [Roadmap]: False-green killers (INTEG-01 spec SHA, INTEG-04 vacuity guard, DIST-05 leak lane) land in Phase 7, immediately after the lifecycle surfaces they depend on — not as end-of-project polish
 - [Roadmap]: Foundry-coercion conformance fixture lands with the drift gate in Phase 8, so a toolchain bump goes red rather than silently reclassifying outcomes
 
+### Phase 3 decisions (locked)
+
+- Envelope layout is `abi.encode(uint16 protocolVersion, uint8 tag, bytes body)` — version FIRST so a mismatch is caught where the payload is read. Tag values: `0x01` success, `0x02` rejection, `0x03` fault; **`0x00` RESERVED** because `PITFALLS.md:164` measured JSON `null` → 32 zero bytes with `success == true`, so a zero tag would decode as a valid success. `protocolVersion = 1`.
+- Guard enum is BRIDGE-owned, named cfmm constructors, in core `protocol`. It cannot be derived from the spec's type — that is a package dependency from a core component and fails to RESOLVE under `stack-core.yaml`. INTEG-02's compile error lands in `cfmm-adapter`'s exhaustive mapping (Phase 11).
+- ABI encoding from **`web3-solidity-1.1.0.0`** in **`abi-codec`** (NOT `protocol`, which imports only `Data.Word`). Never the `web3` meta-package. Snapshot-resident; no extra-dep.
+- Forge project is PERMANENT at `solidity/` (03-05 creates it; `spike/` was deleted in 02-05).
+- Stub oracle is a real package `components/oracle-stub`, in both `stack.yaml` and `stack-core.yaml`.
+
 ### Pending Todos
 
 None yet.
@@ -80,6 +89,9 @@ None yet.
 - **CLOSED (Phase 2)**: alloy does NOT enforce a response `Content-Type`. Measured three rows — `application/json`, `text/plain`, header absent — over a byte-identical body; all exit 0. `ARCHITECTURE.md:612` RETIRED.
 - **NEW (Phase 3 input), SCOPED**: on the **untyped** path — `abi.decode(vm.parseJson(...))` and raw `vm.rpc` returndata — array signedness is NOT observable: `int256[]` and `uint256[]` have identical ABI layouts, so a wrong-branch decode CANNOT revert. **We are on that path.** REFUTED on forge-std's typed array cheatcodes, which fail loudly on a negative. Signedness must be asserted by our schema. Lands on Phase 8/9 codegen.
 - **NEW**: a measurement is scoped to its CODE PATH as much as its version — `vm.rpc` and `vm.parseJson` disagree on identical JSON because `convert_to_bytes` runs on the rpc path only. Label every coercion row.
+- **NEW (03-01)**: `scale-1.1.0.0` + `bitvec` — the Substrate SCALE codec — arrive transitively via `web3-crypto`, which `web3-solidity` needs unconditionally. We avoided the `web3-polkadot` PACKAGE, not its codec. Pure Haskell, no native deps; container check still holds.
+- **NEW (03-01)**: `web3-solidity` costs **+589 s CPU (+85%)**, +28 packages. Measured under exhausted swap, so NOT comparable to Phase 1's 427 s. If Phase 8 wants a smaller footprint, hand-rolling the three encodings removes 8 packages.
+- **STANDING RULE (4 occurrences)**: acceptance criteria must test PROPERTIES, not source text. Anchor greps to syntax prose cannot contain (`'^name ='`, not `'^name'`). Never write a criterion whose only failure mode is someone mentioning the thing.
 - **OWED**: `gams-evm-transport` is waiting on arrays and signed values measured on the `vm.rpc` path (Phase 3 criterion 2).
 - **DEFERRED to Phase 6**: `guess_local_url`/`HTTP_PROXY` trap is `[S]` source-derived, never measured — the same provenance that produced the `vm.rpcJson` error.
 - **RETIRED (Phase 1)**: hosted-CI billing risk — hosted Actions execute; run `33125024351` green, 87 GB free.
