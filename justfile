@@ -30,6 +30,17 @@ drift:
 foundry-pin:
     ./scripts/foundry-pin.sh
 
+# Local mirror of the CI `image` job (01-06 / DIST-04). The tag is a fixed local
+# name -- CI computes a lowercase, slash-free ref from github.repository, which is
+# not reproducible off a runner. Same Dockerfile, same context, same smoke command.
+image:
+    docker build -f docker/Dockerfile -t evm-spec-bridge:local .
+
+# A Dockerfile that builds but produces a binary that cannot start is a false green.
+# CI runs this exact command against the loaded image; so do we.
+image-run:
+    docker run --rm evm-spec-bridge:local --version
+
 # THROWAWAY. `spike/` is a self-contained Stack project -- NOT a package in the root
 # stack.yaml -- and it is deleted in plan 02-05 together with this recipe. Nothing
 # outside spike/ may depend on it.

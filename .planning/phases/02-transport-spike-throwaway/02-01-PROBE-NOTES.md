@@ -497,3 +497,65 @@ still `rm -rf spike/`, and the .cabal goes with it, so 02-05 is unaffected in su
 
 Recorded rather than quietly corrected: an isolation claim that was 3/4 true is exactly the kind of
 thing that gets remembered as 4/4.
+
+---
+
+## `just` installed — three phases of unverifiable criteria resolved
+
+`just 1.52.0` installed via `pacman -S just` with user permission, 2026-08-28. Every criterion
+previously recorded as UNVERIFIED was then actually run:
+
+| Criterion | Source | Result |
+|---|---|---|
+| `just foundry-pin` exits 0 | 02-01-T5 | **PASS**, exit 0 |
+| `just seam` exits 0 | 01-05 | **PASS**, exit 0 |
+| `just drift` exits 0 | 01-05 | **PASS**, exit 0 |
+| `just --list` shows `spike-server` | 02-02-T5 | **PASS** |
+| `just --list \| grep -q 'image-run'` | **01-06-PLAN.md:480** | **WAS FAILING** — recipes absent |
+
+### The Phase 1 gap was real, and is now closed
+
+`01-06-PLAN.md:480` carries an `<automated>` check ending `just --list | grep -q 'image-run'`, and
+`:485` requires "`just --list` lists `image` and `image-run`". Neither recipe existed. The criterion
+had never been met and had never been flagged, because the instrument to check it was not installed.
+
+Added to `justfile`:
+```
+image:      docker build -f docker/Dockerfile -t evm-spec-bridge:local .
+image-run:  docker run --rm evm-spec-bridge:local --version
+```
+
+The local tag is fixed rather than computed: CI derives a lowercase, slash-free ref from
+`github.repository`, which is not reproducible off a runner. Same Dockerfile, same context, same
+smoke command.
+
+Verified by EXECUTION, not by listing:
+```
+$ just image-run
+docker run --rm evm-spec-bridge:local --version
+evm-spec-bridge-transport 0.1.0.0
+exit=0
+```
+
+### What this episode actually demonstrates
+
+The check that would have caught this was written down correctly in 01-06 and could not run.
+Nine of Phase 1's instrument failures were checks pointed at the wrong thing; this one is a check
+pointed at the right thing by a tool that was absent — and absence produced silence rather than an
+error. `just: command not found` never appeared in any gate, because no gate invokes `just`.
+
+**Rule:** a criterion phrased against a tool must be accompanied by evidence the tool exists. An
+uninstallable check is indistinguishable from a passing one when nobody runs it.
+
+---
+
+## Push gates — MEASURED
+
+| Where | Gate | Blocking? |
+|---|---|---|
+| `JMSBPP/evm-spec-bridge@develop` (fork) | `on: [push, pull_request]` — CI runs on every push AND every PR | **NO.** `gh api …/branches/develop/protection` → **404 Branch not protected**. CI is advisory here; a red run does not undo a push that already happened |
+| `d2p-finance/evm-spec-bridge@main` (canonical) | required checks `['seam','build','image']`, `strict: true`, PR reviews required, `enforce_admins: true`, force-push disabled | **YES.** This is DIST-03's mechanism, and 01-09 observed a direct push being refused |
+
+So: work flows freely on the fork with CI as feedback, and canonical is genuinely gated. Worth
+stating plainly because "we have a CI gate" is ambiguous between the two, and only one of them
+can stop a bad change.
