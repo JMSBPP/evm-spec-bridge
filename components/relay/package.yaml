@@ -23,6 +23,7 @@ dependencies:
 - async
 - bytestring
 - containers
+- directory
 - network
 - optparse-applicative
 - stm
@@ -36,6 +37,7 @@ library:
   - Bridge.Relay.Control
   - Bridge.Relay.Wire
   - Bridge.Relay.Session
+  - Bridge.Relay.Daemon
 
 executables:
   relayd:
@@ -67,5 +69,4 @@ tests:
     - stm
     - async
     - text
-    - vector
     - vector
