@@ -23,6 +23,7 @@ import Data.Aeson (Value (..), encode)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 
@@ -88,6 +89,16 @@ markAlive sess = sess {sessAlive = True}
 canonicalId :: Value -> Text
 canonicalId = TL.toStrict . TLE.decodeUtf8 . encode
 
+-- | Outbound (Foundry -> HEVM) request ids are namespaced strings, not
+-- bare numbers: HEVM numbers its own (inbound, HEVM -> Foundry) requests
+-- independently on the same duplex socket, and a peer that correlates
+-- replies by id alone could otherwise confuse its own outstanding request
+-- @1@ with relayd's outbound request @1@. A distinct @"relay-<n>"@ string
+-- shape keeps the two id spaces disjoint without relayd needing to track
+-- HEVM's allocator.
+outboundId :: Integer -> Value
+outboundId n = String ("relay-" <> T.pack (show n))
+
 step :: SessionEvent -> Session -> (Session, SessionEffect)
 step ev sess = case ev of
   EvSendAlloc
@@ -95,7 +106,7 @@ step ev sess = case ev of
     | otherwise ->
         let n = sessNextId sess
             sess' = sess {sessNextId = n + 1}
-         in (sess', EffAllocatedId (Number (fromInteger n)))
+         in (sess', EffAllocatedId (outboundId n))
   EvOutboundResult _ _ -> (sess, EffNop)
   EvOutboundError _ _ -> (sess, EffNop)
   EvInbound (RpcRequest rid method params) ->

@@ -8,7 +8,7 @@ module Bridge.Relay.Control
   ) where
 
 import Bridge.Relay.Types (ControlReq (..), ControlResp (..))
-import Data.Aeson (Value (..), eitherDecode, encode, object, withObject, (.:), (.:?), (.=))
+import Data.Aeson (Value (..), eitherDecode, encode, object, withObject, (.:), (.=))
 import Data.Aeson.Types (Parser, parseEither)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
@@ -69,51 +69,56 @@ controlReqFromJSON =
       "reply" -> ReplyReq <$> o .: "id" <*> o .: "result"
       other -> fail ("unknown op: " ++ show (other :: Text))
 
+-- | Every control response carries an explicit @"kind"@ discriminator
+-- (distinct from the human-readable @"ok"@ flag, kept for convenience) so
+-- the decoder never has to infer the constructor from *which* optional
+-- keys happen to be present. That inference (the previous encoding) is
+-- ambiguous whenever a field that's legitimately present in one variant
+-- is null or otherwise absent-looking, e.g. @PollOk@ with @params: null@
+-- or @id: null@ was indistinguishable from @ReplyOk@ / @SendOk@ by key
+-- probing alone. With a tag, decoding is total and unambiguous regardless
+-- of which fields are null.
 controlRespToJSON :: ControlResp -> Value
 controlRespToJSON = \case
   SendOk result ->
     object
       [ "ok" .= Bool True
+      , "kind" .= String "send"
       , "result" .= result
       ]
   PollEmpty ->
     object
       [ "ok" .= Bool True
-      , "empty" .= Bool True
+      , "kind" .= String "pollEmpty"
       ]
   PollOk rid method params ->
     object
       [ "ok" .= Bool True
+      , "kind" .= String "poll"
       , "id" .= rid
       , "method" .= String method
       , "params" .= params
       ]
   ReplyOk ->
-    object ["ok" .= Bool True]
+    object
+      [ "ok" .= Bool True
+      , "kind" .= String "reply"
+      ]
   ControlErr err ->
     object
       [ "ok" .= Bool False
+      , "kind" .= String "error"
       , "error" .= String err
       ]
 
 controlRespFromJSON :: Value -> Parser ControlResp
 controlRespFromJSON =
   withObject "ControlResp" $ \o -> do
-    ok <- o .: "ok"
-    if ok
-      then do
-        memptyFlag <- o .:? "empty"
-        case memptyFlag of
-          Just True -> pure PollEmpty
-          _ -> do
-            mid <- o .:? "id"
-            mmethod <- o .:? "method"
-            mparams <- o .:? "params"
-            case (mid, mmethod, mparams) of
-              (Just rid, Just method, Just params) -> pure (PollOk rid method params)
-              _ -> do
-                mresult <- o .:? "result"
-                case mresult of
-                  Just result -> pure (SendOk result)
-                  Nothing -> pure ReplyOk
-      else ControlErr <$> o .: "error"
+    kind <- o .: "kind"
+    case (kind :: Text) of
+      "send" -> SendOk <$> o .: "result"
+      "pollEmpty" -> pure PollEmpty
+      "poll" -> PollOk <$> o .: "id" <*> o .: "method" <*> o .: "params"
+      "reply" -> pure ReplyOk
+      "error" -> ControlErr <$> o .: "error"
+      other -> fail ("unknown control response kind: " ++ show other)

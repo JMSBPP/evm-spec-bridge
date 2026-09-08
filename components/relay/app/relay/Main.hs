@@ -44,7 +44,6 @@ import System.IO
   , stderr
   , stdout
   )
-import System.IO.Error (userError)
 
 -- | A parsed CLI command, independent of where the control socket lives.
 data Command

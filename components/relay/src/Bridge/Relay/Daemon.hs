@@ -34,6 +34,7 @@ import Bridge.Relay.Wire
   , decodeResponse
   , encodeRequest
   , encodeResponse
+  , respId
   )
 import Control.Concurrent (forkIO)
 import Control.Concurrent.Async (concurrently_)
@@ -57,6 +58,7 @@ import Control.Concurrent.STM.TMVar
 import Control.Exception
   ( IOException
   , catch
+  , finally
   , try
   )
 import Control.Monad (forever, void)
@@ -208,7 +210,12 @@ handleHevmLine ds h lineBs =
           case mtmv of
             Just tmv -> atomically (putTMVar tmv resp)
             Nothing -> pure ()
-        Left _ -> pure ()
+        Left respErr ->
+          hPutStrLn
+            stderr
+            ( "relayd: dropping undecodable hevm line (neither a request nor a response): "
+                ++ respErr
+            )
 
 --------------------------------------------------------------------------------
 -- Control plane: many short-lived connections.
@@ -226,17 +233,25 @@ ctlLoop cfg ds sock = forever $ do
       `catch` \(e :: IOException) ->
         hPutStrLn stderr ("relayd: control connection handler failed: " ++ show e)
 
+-- | Handle one control connection end-to-end, always closing the handle
+-- on the way out (whether the request was malformed, the handler threw,
+-- or everything went fine) so a throwing 'processControlReq' can't leak
+-- the fd. The one-request-per-connection contract is unaffected: the
+-- handle is still closed exactly once, right after (at most) one
+-- request/response round-trip.
 handleCtlConn :: Config -> DaemonState -> Handle -> IO ()
-handleCtlConn cfg ds h = do
-  result <- try (BSC.hGetLine h) :: IO (Either IOException BS.ByteString)
-  case result of
-    Left _ -> hClose h
-    Right lineBs -> do
-      resp <- case decodeControlReq lineBs of
-        Left err -> pure (ControlErr (T.pack ("bad request: " <> err)))
-        Right req -> processControlReq cfg ds req
-      _ <- safeWrite h (encodeControlResp resp)
-      hClose h
+handleCtlConn cfg ds h = handleCtlConn' `finally` hClose h
+  where
+    handleCtlConn' = do
+      result <- try (BSC.hGetLine h) :: IO (Either IOException BS.ByteString)
+      case result of
+        Left _ -> pure ()
+        Right lineBs -> do
+          resp <- case decodeControlReq lineBs of
+            Left err -> pure (ControlErr (T.pack ("bad request: " <> err)))
+            Right req -> processControlReq cfg ds req
+          _ <- safeWrite h (encodeControlResp resp)
+          pure ()
 
 processControlReq :: Config -> DaemonState -> ControlReq -> IO ControlResp
 processControlReq cfg ds req = case req of
@@ -291,7 +306,7 @@ sendAndAwait cfg ds h rid method params = do
       pure $ case mresp of
         Nothing -> ControlErr "timeout"
         Just (RpcResult _ result) -> SendOk result
-        Just (RpcError _ errVal) -> ControlErr (canonicalId errVal)
+        Just (RpcError _ errVal) -> ControlErr (errText errVal)
 
 --------------------------------------------------------------------------------
 -- Small shared helpers.
@@ -315,6 +330,18 @@ failOutstandingWaiters ds = do
   m <- readTVar (dsWaiters ds)
   mapM_ (\tmv -> void (tryPutTMVar tmv (RpcError Null (String "hevm disconnected")))) (Map.elems m)
   writeTVar (dsWaiters ds) Map.empty
+
+-- | Render an HEVM-supplied JSON-RPC error 'Value' as stderr/control-error
+-- text. A plain JSON string error (the common case) is unwrapped to its
+-- raw text instead of aeson-encoding it (which would wrap it in quotes,
+-- e.g. @"boom"@), so genuine HEVM error tokens are distinguishable from
+-- relayd's own sentinels (@timeout@, @unknown id@, @hevm disconnected@)
+-- rather than all being uniformly quoted. Non-string error payloads (an
+-- object or array, say) fall back to a compact JSON encoding since there
+-- is no plain-text rendering to unwrap to.
+errText :: Value -> Text
+errText (String s) = s
+errText other = canonicalId other
 
 -- | Write a line to 'Handle', catching only synchronous 'IOException's (a
 -- closed/broken pipe, say) so callers can react to a failed write instead of
