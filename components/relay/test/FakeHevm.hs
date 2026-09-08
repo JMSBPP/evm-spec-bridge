@@ -4,7 +4,7 @@
 -- | A minimal scripted HEVM stand-in for relayd integration tests: dials the
 -- daemon's data-plane Unix socket and replies to @echo@ requests by
 -- reflecting their params back as the result.
-module FakeHevm (runEchoHevm) where
+module FakeHevm (runEchoHevm, connectAndHangUp) where
 
 import Bridge.Relay.Wire
   ( RpcRequest (..)
@@ -12,7 +12,7 @@ import Bridge.Relay.Wire
   , decodeRequest
   , encodeResponse
   )
-import Control.Exception (IOException, SomeException, catch, try)
+import Control.Exception (IOException, catch, try)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Control.Concurrent (threadDelay)
@@ -26,7 +26,7 @@ import Network.Socket
   , socket
   , socketToHandle
   )
-import System.IO (BufferMode (LineBuffering), IOMode (ReadWriteMode), hFlush, hSetBuffering)
+import System.IO (BufferMode (LineBuffering), IOMode (ReadWriteMode), hClose, hFlush, hSetBuffering)
 
 -- | Connect to the relayd data-plane socket at 'sockPath' (retrying briefly
 -- until the daemon is listening), then serve @echo@ requests until the
@@ -47,9 +47,18 @@ runEchoHevm sockPath = do
             Right (RpcRequest rid method params)
               | method == "echo" ->
                   (BS.hPut h (encodeResponse (RpcResult rid params)) >> hFlush h)
-                    `catch` \(_ :: SomeException) -> pure ()
+                    `catch` \(_ :: IOException) -> pure ()
             _ -> pure ()
           loop h
+
+-- | Connect to the relayd data-plane socket then immediately hang up without
+-- serving anything, simulating a HEVM process that dies mid-session. Used to
+-- exercise the daemon's disconnect / stale-handle handling.
+connectAndHangUp :: FilePath -> IO ()
+connectAndHangUp sockPath = do
+  sock <- connectRetrying sockPath (50 :: Int)
+  h <- socketToHandle sock ReadWriteMode
+  hClose h
 
 connectRetrying :: FilePath -> Int -> IO Socket
 connectRetrying path n = do

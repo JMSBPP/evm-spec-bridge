@@ -9,6 +9,7 @@
 module Bridge.Relay.Daemon
   ( Config (..)
   , runRelayd
+  , safeWrite -- exported for direct unit testing of the write-failure contract
   ) where
 
 import Bridge.Relay.Control
@@ -54,7 +55,6 @@ import Control.Concurrent.STM.TMVar
   )
 import Control.Exception
   ( IOException
-  , SomeException
   , catch
   , try
   )
@@ -86,7 +86,9 @@ import System.IO
   , IOMode (ReadWriteMode)
   , hClose
   , hFlush
+  , hPutStrLn
   , hSetBuffering
+  , stderr
   )
 import System.Timeout (timeout)
 
@@ -124,9 +126,13 @@ runRelayd cfg = do
   dataSock <- listenUnix (cfgDataSock cfg)
   ctlSock <- listenUnix (cfgCtlSock cfg)
   -- Both loops run forever; this blocks until one of them raises (which, in
-  -- normal operation, never happens).
+  -- normal operation, never happens). Only synchronous IO failures are
+  -- caught here so the daemon can clean up its sockets and report the
+  -- failure; asynchronous exceptions (e.g. a test harness cancelling this
+  -- thread) propagate as usual.
   concurrently_ (dataLoop ds dataSock) (ctlLoop cfg ds ctlSock)
-    `catch` \(_ :: SomeException) -> pure ()
+    `catch` \(e :: IOException) ->
+      hPutStrLn stderr ("relayd: main loop terminated unexpectedly: " ++ show e)
   close dataSock
   close ctlSock
 
@@ -153,7 +159,7 @@ dataLoop ds sock = forever $ do
     modifyTVar' (dsSession ds) markAlive
     pure old
   case mOld of
-    Just oldH -> hClose oldH `catch` \(_ :: SomeException) -> pure ()
+    Just oldH -> hClose oldH `catch` \(_ :: IOException) -> pure ()
     Nothing -> pure ()
   readHevmLines ds h
   atomically $ do
@@ -179,8 +185,12 @@ handleHevmLine ds h lineBs =
     Right req -> do
       eff <- atomically (stepTVar (dsSession ds) (EvInbound req))
       case eff of
-        EffRejectInbound rid msg ->
-          safeWrite h (encodeResponse (RpcError rid (String msg)))
+        EffRejectInbound rid msg -> do
+          writeResult <- safeWrite h (encodeResponse (RpcError rid (String msg)))
+          case writeResult of
+            Left e ->
+              hPutStrLn stderr ("relayd: failed to write overflow rejection to hevm: " ++ show e)
+            Right () -> pure ()
         _ -> pure ()
     Left _ ->
       case decodeResponse lineBs of
@@ -207,7 +217,8 @@ ctlLoop cfg ds sock = forever $ do
       hSetBuffering h LineBuffering
       handleCtlConn cfg ds h
     )
-      `catch` \(_ :: SomeException) -> pure ()
+      `catch` \(e :: IOException) ->
+        hPutStrLn stderr ("relayd: control connection handler failed: " ++ show e)
 
 handleCtlConn :: Config -> DaemonState -> Handle -> IO ()
 handleCtlConn cfg ds h = do
@@ -218,7 +229,7 @@ handleCtlConn cfg ds h = do
       resp <- case decodeControlReq lineBs of
         Left err -> pure (ControlErr (T.pack ("bad request: " <> err)))
         Right req -> processControlReq cfg ds req
-      safeWrite h (encodeControlResp resp)
+      _ <- safeWrite h (encodeControlResp resp)
       hClose h
 
 processControlReq :: Config -> DaemonState -> ControlReq -> IO ControlResp
@@ -236,8 +247,10 @@ processControlReq cfg ds req = case req of
         mh <- readTVarIO (dsHevmHandle ds)
         case mh of
           Just h -> do
-            safeWrite h (encodeResponse resp)
-            pure ReplyOk
+            writeResult <- safeWrite h (encodeResponse resp)
+            pure $ case writeResult of
+              Left _ -> ControlErr "hevm write failed"
+              Right () -> ReplyOk
           Nothing -> pure (ControlErr "hevm not connected")
       EffFail msg -> pure (ControlErr msg)
       _ -> pure (ControlErr "internal error: unexpected reply effect")
@@ -252,22 +265,27 @@ processControlReq cfg ds req = case req of
           Just h -> sendAndAwait cfg ds h rid method params
       _ -> pure (ControlErr "internal error: unexpected alloc effect")
 
+-- | Register a waiter, write the outbound request, and await the matching
+-- response (or timeout). A write failure fails the control caller promptly
+-- with @ControlErr "hevm write failed"@ rather than idling out the full
+-- 'cfgTimeoutSec' waiting for a reply that will never arrive.
 sendAndAwait :: Config -> DaemonState -> Handle -> Value -> Text -> Value -> IO ControlResp
 sendAndAwait cfg ds h rid method params = do
   tmv <- newEmptyTMVarIO
   let idText = canonicalId rid
   atomically $ modifyTVar' (dsWaiters ds) (Map.insert idText tmv)
-  mresp <-
-    (do
-      safeWrite h (encodeRequest (RpcRequest rid method params))
-      timeout (cfgTimeoutSec cfg * 1000000) (atomically (takeTMVar tmv))
-    )
-      `catch` \(_ :: SomeException) -> pure Nothing
-  atomically $ modifyTVar' (dsWaiters ds) (Map.delete idText)
-  pure $ case mresp of
-    Nothing -> ControlErr "timeout"
-    Just (RpcResult _ result) -> SendOk result
-    Just (RpcError _ errVal) -> ControlErr (canonicalId errVal)
+  writeResult <- safeWrite h (encodeRequest (RpcRequest rid method params))
+  case writeResult of
+    Left _ -> do
+      atomically $ modifyTVar' (dsWaiters ds) (Map.delete idText)
+      pure (ControlErr "hevm write failed")
+    Right () -> do
+      mresp <- timeout (cfgTimeoutSec cfg * 1000000) (atomically (takeTMVar tmv))
+      atomically $ modifyTVar' (dsWaiters ds) (Map.delete idText)
+      pure $ case mresp of
+        Nothing -> ControlErr "timeout"
+        Just (RpcResult _ result) -> SendOk result
+        Just (RpcError _ errVal) -> ControlErr (canonicalId errVal)
 
 --------------------------------------------------------------------------------
 -- Small shared helpers.
@@ -280,5 +298,8 @@ stepTVar var ev = do
   writeTVar var s'
   pure eff
 
-safeWrite :: Handle -> BS.ByteString -> IO ()
-safeWrite h bs = (BS.hPut h bs >> hFlush h) `catch` \(_ :: SomeException) -> pure ()
+-- | Write a line to 'Handle', catching only synchronous 'IOException's (a
+-- closed/broken pipe, say) so callers can react to a failed write instead of
+-- having it silently swallowed. Asynchronous exceptions are not caught here.
+safeWrite :: Handle -> BS.ByteString -> IO (Either IOException ())
+safeWrite h bs = try (BS.hPut h bs >> hFlush h)

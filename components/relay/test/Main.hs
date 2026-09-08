@@ -3,7 +3,7 @@
 module Main (main) where
 
 import Bridge.Relay.Control
-import Bridge.Relay.Daemon (Config (..), runRelayd)
+import Bridge.Relay.Daemon (Config (..), runRelayd, safeWrite)
 import Bridge.Relay.Queue
 import Bridge.Relay.Session
 import Bridge.Relay.Types
@@ -15,7 +15,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Aeson (Value (..))
 import qualified Data.Vector as V
-import FakeHevm (runEchoHevm)
+import FakeHevm (connectAndHangUp, runEchoHevm)
 import Network.Socket
   ( Family (AF_UNIX)
   , SockAddr (SockAddrUnix)
@@ -27,9 +27,18 @@ import Network.Socket
   , socketToHandle
   )
 import System.Directory (getTemporaryDirectory, removeFile)
-import System.IO (BufferMode (LineBuffering), IOMode (ReadWriteMode), hClose, hFlush, hSetBuffering, openTempFile)
+import System.IO
+  ( BufferMode (LineBuffering)
+  , IOMode (ReadMode, ReadWriteMode)
+  , hClose
+  , hFlush
+  , hSetBuffering
+  , openFile
+  , openTempFile
+  )
+import System.Timeout (timeout)
 import Test.Tasty (defaultMain, testGroup)
-import Test.Tasty.HUnit ((@?=), testCase)
+import Test.Tasty.HUnit (assertBool, assertFailure, (@?=), testCase)
 
 main :: IO ()
 main =
@@ -124,8 +133,48 @@ main =
                       (SendReq "echo" (Array (V.fromList [Number 42])))
                       (100 :: Int)
                   resp @?= SendOk (Array (V.fromList [Number 42]))
+          , testCase "safeWrite reports a write failure instead of swallowing it" $ do
+              -- A handle opened ReadMode is guaranteed to fail synchronously
+              -- on hPut with an IOException; this exercises the exact
+              -- contract 'sendAndAwait' / the reply path rely on to fail
+              -- promptly instead of idling out a full timeout.
+              tmp <- getTemporaryDirectory
+              (path, h0) <- openTempFile tmp "safewrite-test"
+              hClose h0
+              h <- openFile path ReadMode
+              result <- safeWrite h "hello\n"
+              case result of
+                Left _ -> pure ()
+                Right () -> assertFailure "expected safeWrite to report a write failure"
+              hClose h
+              removeFile path
+          , testCase "send after hevm hangs up fails promptly, not after the full timeout" $ do
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  -- A generously large timeout: if the old bug (write
+                  -- failures silently swallowed, then waiting the full
+                  -- timeout) regressed, this test would take >= 20s instead
+                  -- of completing within the 'timeout' bound below.
+                  cfg = Config sockPath ctlPath 20 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                connectAndHangUp sockPath
+                -- Give the daemon a moment to observe the disconnect so the
+                -- assertion below isn't itself racing HEVM's hangup.
+                threadDelay 100000
+                mresp <-
+                  timeout
+                    3000000
+                    (sendControlReq ctlPath (SendReq "echo" (Array (V.fromList [Number 1]))))
+                case mresp of
+                  Nothing -> assertFailure "send did not return within 3s (waited out the timeout instead of failing promptly)"
+                  Just resp -> assertBool ("expected a ControlErr, got " ++ show resp) (isControlErr resp)
           ]
       ]
+
+isControlErr :: ControlResp -> Bool
+isControlErr (ControlErr _) = True
+isControlErr _ = False
 
 -- | Create a fresh, not-yet-existing path suitable for a Unix socket:
 -- allocate a uniquely-named temp file (guaranteeing no collision with other
