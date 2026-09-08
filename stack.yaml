@@ -18,6 +18,7 @@ packages:
 - components/transport
 - components/codegen
 - components/cfmm-adapter
+- components/relay
 
 # The spec, pinned by commit on the CANONICAL repo (not the fork): a published
 # artifact must not depend on unreviewed code. `stack.yaml.lock` records this

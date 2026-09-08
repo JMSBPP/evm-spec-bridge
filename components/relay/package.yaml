@@ -1,0 +1,62 @@
+name:        evm-spec-bridge-relay
+version:     0.1.0.0
+synopsis:    Minimal Foundry–HEVM Unix-socket JSON-RPC relay
+license:     BSD-3-Clause
+author:      JMSBPP
+maintainer:  juan.serranotmf@gmail.com
+copyright:   2026 JMSBPP
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+dependencies:
+- base >= 4.7 && < 5
+- aeson
+- async
+- bytestring
+- network
+- optparse-applicative
+- stm
+- text
+
+library:
+  source-dirs: src
+
+executables:
+  relayd:
+    main: Main.hs
+    source-dirs: app/relayd
+    dependencies:
+    - evm-spec-bridge-relay
+  relay:
+    main: Main.hs
+    source-dirs: app/relay
+    dependencies:
+    - evm-spec-bridge-relay
+
+tests:
+  relay-test:
+    main: Main.hs
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - evm-spec-bridge-relay
+    - tasty
+    - tasty-hunit
+    - aeson
+    - bytestring
+    - network
+    - stm
+    - async
+    - text
