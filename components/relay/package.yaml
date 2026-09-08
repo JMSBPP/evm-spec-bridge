@@ -22,6 +22,7 @@ dependencies:
 - aeson
 - async
 - bytestring
+- containers
 - network
 - optparse-applicative
 - stm
@@ -33,6 +34,8 @@ library:
   - Bridge.Relay.Queue
   - Bridge.Relay.Types
   - Bridge.Relay.Control
+  - Bridge.Relay.Wire
+  - Bridge.Relay.Session
 
 executables:
   relayd:

@@ -18,6 +18,8 @@ library
       Bridge.Relay.Queue
       Bridge.Relay.Types
       Bridge.Relay.Control
+      Bridge.Relay.Wire
+      Bridge.Relay.Session
   other-modules:
       Paths_evm_spec_bridge_relay
   autogen-modules:
@@ -30,6 +32,7 @@ library
     , async
     , base >=4.7 && <5
     , bytestring
+    , containers
     , network
     , optparse-applicative
     , stm
@@ -50,6 +53,7 @@ executable relay
     , async
     , base >=4.7 && <5
     , bytestring
+    , containers
     , evm-spec-bridge-relay
     , network
     , optparse-applicative
@@ -71,6 +75,7 @@ executable relayd
     , async
     , base >=4.7 && <5
     , bytestring
+    , containers
     , evm-spec-bridge-relay
     , network
     , optparse-applicative
@@ -93,6 +98,7 @@ test-suite relay-test
     , async
     , base >=4.7 && <5
     , bytestring
+    , containers
     , evm-spec-bridge-relay
     , network
     , optparse-applicative
