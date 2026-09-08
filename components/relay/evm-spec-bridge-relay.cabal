@@ -1,0 +1,118 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.39.6.
+--
+-- see: https://github.com/sol/hpack
+
+name:           evm-spec-bridge-relay
+version:        0.1.0.0
+synopsis:       Minimal Foundry–HEVM Unix-socket JSON-RPC relay
+author:         JMSBPP
+maintainer:     juan.serranotmf@gmail.com
+copyright:      2026 JMSBPP
+license:        BSD-3-Clause
+build-type:     Simple
+
+library
+  exposed-modules:
+      Bridge.Relay.Queue
+      Bridge.Relay.Types
+      Bridge.Relay.Control
+      Bridge.Relay.Wire
+      Bridge.Relay.Session
+      Bridge.Relay.Daemon
+  other-modules:
+      Paths_evm_spec_bridge_relay
+  autogen-modules:
+      Paths_evm_spec_bridge_relay
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      aeson
+    , async
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , directory
+    , network
+    , optparse-applicative
+    , stm
+    , text
+  default-language: Haskell2010
+
+executable relay
+  main-is: Main.hs
+  other-modules:
+      Paths_evm_spec_bridge_relay
+  autogen-modules:
+      Paths_evm_spec_bridge_relay
+  hs-source-dirs:
+      app/relay
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      aeson
+    , async
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , directory
+    , evm-spec-bridge-relay
+    , network
+    , optparse-applicative
+    , stm
+    , text
+  default-language: Haskell2010
+
+executable relayd
+  main-is: Main.hs
+  other-modules:
+      Paths_evm_spec_bridge_relay
+  autogen-modules:
+      Paths_evm_spec_bridge_relay
+  hs-source-dirs:
+      app/relayd
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      aeson
+    , async
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , directory
+    , evm-spec-bridge-relay
+    , network
+    , optparse-applicative
+    , stm
+    , text
+  default-language: Haskell2010
+
+test-suite relay-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      FakeHevm
+      Paths_evm_spec_bridge_relay
+  autogen-modules:
+      Paths_evm_spec_bridge_relay
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , async
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , directory
+    , evm-spec-bridge-relay
+    , filepath
+    , network
+    , optparse-applicative
+    , process
+    , stm
+    , tasty
+    , tasty-hunit
+    , text
+    , vector
+  default-language: Haskell2010
