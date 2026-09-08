@@ -6,6 +6,8 @@ pragma solidity ^0.8.34;
 
 interface Vm {
     function rpc(string calldata, string calldata, string calldata) external returns (bytes memory);
+    /// @dev StdCheats / forge-std surface — stdout of the spawned process as bytes.
+    function ffi(string[] calldata) external returns (bytes memory);
 }
 
 address constant VM_ADDR = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
