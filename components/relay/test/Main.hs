@@ -14,6 +14,7 @@ import Control.Exception (IOException, bracket, catch)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Aeson (Value (..))
+import Data.List (isInfixOf)
 import qualified Data.Vector as V
 import FakeHevm (connectAndHangUp, runEchoHevm)
 import Network.Socket
@@ -27,6 +28,10 @@ import Network.Socket
   , socketToHandle
   )
 import System.Directory (getTemporaryDirectory, removeFile)
+import System.Environment (getEnvironment, getExecutablePath)
+import System.Exit (ExitCode (..))
+import System.FilePath (takeDirectory, (</>))
+import System.Process (proc, readCreateProcessWithExitCode, CreateProcess (env))
 import System.IO
   ( BufferMode (LineBuffering)
   , IOMode (ReadMode, ReadWriteMode)
@@ -170,7 +175,65 @@ main =
                   Nothing -> assertFailure "send did not return within 3s (waited out the timeout instead of failing promptly)"
                   Just resp -> assertBool ("expected a ControlErr, got " ++ show resp) (isControlErr resp)
           ]
+      , testGroup
+          "cli"
+          [ testCase "relay send echo via CLI against a running relayd" $ do
+              binPath <- relayBinPath
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  cfg = Config sockPath ctlPath 5 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                withAsync (runEchoHevm sockPath) $ \_ -> do
+                  (code, out, err) <-
+                    runRelayCliRetrying binPath sockPath ["send", "echo", "[1]"] (100 :: Int)
+                  code @?= ExitSuccess
+                  assertBool ("expected stdout to contain 1, got: " ++ show out) ("1" `isInfixOf` out)
+                  err @?= ""
+          , testCase "relay send with no relayd listening reports relayd unavailable" $ do
+              binPath <- relayBinPath
+              sockPath <- freshSockPath
+              (code, out, err) <- runRelayCli binPath sockPath ["send", "echo", "[1]"]
+              code @?= ExitFailure 1
+              out @?= ""
+              assertBool
+                ("expected stderr to mention relayd unavailable, got: " ++ show err)
+                ("relayd unavailable" `isInfixOf` err)
+          ]
       ]
+
+-- | The 'relay' executable is a sibling build product of this test suite
+-- under Stack's per-component build tree
+-- (@.../build/relay-test/relay-test@ vs. @.../build/relay/relay@), so we can
+-- locate it relative to our own executable path without shelling out to
+-- @stack path@ (which would re-enter Stack's project lock).
+relayBinPath :: IO FilePath
+relayBinPath = do
+  selfPath <- getExecutablePath
+  let buildDir = takeDirectory (takeDirectory selfPath)
+  pure (buildDir </> "relay" </> "relay")
+
+-- | Invoke the built @relay@ binary with @RELAY_SOCK@ pointing at
+-- 'sockPath', capturing exit code / stdout / stderr.
+runRelayCli :: FilePath -> FilePath -> [String] -> IO (ExitCode, String, String)
+runRelayCli binPath sockPath args = do
+  baseEnv <- getEnvironment
+  let cp = (proc binPath args) {env = Just (("RELAY_SOCK", sockPath) : baseEnv)}
+  readCreateProcessWithExitCode cp ""
+
+-- | Like 'runRelayCli', but retries while the daemon reports
+-- @"hevm not connected"@, matching 'sendControlReqRetrying' below: the
+-- FakeHevm data-plane connection may not have finished dialing in yet.
+runRelayCliRetrying :: FilePath -> FilePath -> [String] -> Int -> IO (ExitCode, String, String)
+runRelayCliRetrying binPath sockPath args n = do
+  result@(code, _, err) <- runRelayCli binPath sockPath args
+  case code of
+    ExitSuccess -> pure result
+    _
+      | "hevm not connected" `isInfixOf` err && n > 0 -> do
+          threadDelay 20000
+          runRelayCliRetrying binPath sockPath args (n - 1)
+      | otherwise -> pure result
 
 isControlErr :: ControlResp -> Bool
 isControlErr (ControlErr _) = True

@@ -70,3 +70,5 @@ tests:
     - async
     - text
     - vector
+    - process
+    - filepath

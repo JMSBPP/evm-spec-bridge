@@ -106,8 +106,10 @@ test-suite relay-test
     , containers
     , directory
     , evm-spec-bridge-relay
+    , filepath
     , network
     , optparse-applicative
+    , process
     , stm
     , tasty
     , tasty-hunit
