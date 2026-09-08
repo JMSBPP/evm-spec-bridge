@@ -11,6 +11,7 @@ module FakeHevm
   , runSilentHevm
   , runErrorHevm
   , runOverflowHevm
+  , runInboundRequestHevm
   ) where
 
 import Bridge.Relay.Wire
@@ -23,6 +24,7 @@ import Bridge.Relay.Wire
   )
 import Control.Concurrent.MVar (MVar, tryPutMVar)
 import Control.Exception (IOException, catch, try)
+import Control.Monad (void)
 import Data.Aeson (Value (Array, Number, String))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
@@ -159,6 +161,29 @@ runOverflowHevm sockPath rejectedVar = do
                         `catch` \(_ :: IOException) -> pure ()
                 _ -> pure ()
               loop h
+
+-- | Connect to the relayd data-plane socket, immediately push one inbound
+-- (HEVM -> Foundry) request ('req'), then wait for the matching response
+-- and report it via 'replyVar'. Used to exercise the HEVM-initiated
+-- @poll@/@reply@ direction end-to-end: this is the "FakeHevm" side of that
+-- flow, the test drives the Foundry ('poll' then 'reply') side.
+runInboundRequestHevm :: FilePath -> RpcRequest -> MVar RpcResponse -> IO ()
+runInboundRequestHevm sockPath req replyVar = do
+  sock <- connectRetrying sockPath (50 :: Int)
+  h <- socketToHandle sock ReadWriteMode
+  hSetBuffering h LineBuffering
+  BS.hPut h (encodeRequest req)
+  hFlush h
+  loop h
+  where
+    loop h = do
+      result <- try (BSC.hGetLine h) :: IO (Either IOException BS.ByteString)
+      case result of
+        Left _ -> pure ()
+        Right lineBs ->
+          case decodeResponse lineBs of
+            Right resp -> void (tryPutMVar replyVar resp)
+            Left _ -> loop h
 
 connectRetrying :: FilePath -> Int -> IO Socket
 connectRetrying path n = do

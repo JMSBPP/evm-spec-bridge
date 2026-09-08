@@ -22,6 +22,7 @@ import FakeHevm
   , connectAndHangUpAfter
   , runEchoHevm
   , runErrorHevm
+  , runInboundRequestHevm
   , runOverflowHevm
   , runSilentHevm
   )
@@ -61,8 +62,8 @@ main =
       [ testGroup
           "queue"
           [ testCase "fifo order" $ do
-              let Right q1 = push (1 :: Int) (emptyQueue 4)
-                  Right q2 = push 2 q1
+              let q1 = mustPush (1 :: Int) (emptyQueue 4)
+                  q2 = mustPush 2 q1
                   (a, q3) = pop q2
                   (b, _) = pop q3
               a @?= Just 1
@@ -73,7 +74,7 @@ main =
               let (b, _) = pop q'
               b @?= Nothing
           , testCase "overflow at bound" $ do
-              let Right q1 = push (1 :: Int) (emptyQueue 1)
+              let q1 = mustPush (1 :: Int) (emptyQueue 1)
               push 2 q1 @?= Left Overflow
           ]
       , testGroup
@@ -83,9 +84,22 @@ main =
                   bs = encodeControlReq req
               decodeControlReq bs @?= Right req
           , testCase "poll empty resp" $ do
-              decodeControlResp "{\"ok\":true,\"empty\":true}\n" @?= Right PollEmpty
+              decodeControlResp "{\"ok\":true,\"kind\":\"pollEmpty\"}\n" @?= Right PollEmpty
           , testCase "error resp" $ do
-              decodeControlResp "{\"ok\":false,\"error\":\"timeout\"}\n" @?= Right (ControlErr "timeout")
+              decodeControlResp "{\"ok\":false,\"kind\":\"error\",\"error\":\"timeout\"}\n" @?= Right (ControlErr "timeout")
+          , testCase "sendOk with a null result round-trips (not misread as ReplyOk)" $ do
+              let resp = SendOk Null
+              decodeControlResp (encodeControlResp resp) @?= Right resp
+          , testCase "pollOk with null id and null params round-trips" $ do
+              let resp = PollOk Null "m" Null
+              decodeControlResp (encodeControlResp resp) @?= Right resp
+          , testCase "pollOk is discriminated from pollEmpty/replyOk purely by kind, not key presence" $ do
+              -- Regression for the pre-fix key-probing decoder: a PollOk
+              -- with every payload field null used to decode as ReplyOk
+              -- because `.:?` treated null id/method/params as absent.
+              decodeControlResp
+                "{\"ok\":true,\"kind\":\"poll\",\"id\":null,\"method\":\"m\",\"params\":null}\n"
+                @?= Right (PollOk Null "m" Null)
           ]
       , testGroup
           "wire"
@@ -94,6 +108,15 @@ main =
               decodeRequest (encodeRequest req) @?= Right req
               let resp = RpcResult (Number 1) (String "0xdead")
               decodeResponse (encodeResponse resp) @?= Right resp
+          , testCase "response with an explicit null result decodes as success, not error" $ do
+              decodeResponse "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}\n"
+                @?= Right (RpcResult (Number 1) Null)
+          , testCase "request with params omitted defaults params to null" $ do
+              decodeRequest "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"foo\"}\n"
+                @?= Right (RpcRequest (Number 1) "foo" Null)
+          , testCase "request with an explicit null params round-trips" $ do
+              let req = RpcRequest (Number 1) "foo" Null
+              decodeRequest (encodeRequest req) @?= Right req
           ]
       , testGroup
           "session"
@@ -227,7 +250,27 @@ main =
                       )
                   case mresp of
                     Nothing -> assertFailure "send did not return within 3s of hevm disconnecting mid-wait"
-                    Just resp -> assertBool ("expected a ControlErr, got " ++ show resp) (isControlErr resp)
+                    -- Exact text, not just "some ControlErr": the disconnect
+                    -- sentinel must be the plain, unquoted "hevm disconnected"
+                    -- token (I5) so it's distinguishable from a genuine HEVM
+                    -- error string reaching the same code path.
+                    Just resp -> resp @?= ControlErr "hevm disconnected"
+          , testCase "hevm JSON-RPC string error is unwrapped, not aeson-quoted" $ do
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  cfg = Config sockPath ctlPath 5 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                withAsync (runErrorHevm sockPath) $ \_ -> do
+                  resp <-
+                    sendControlReqRetrying
+                      ctlPath
+                      (SendReq "fail" (Array V.empty))
+                      (100 :: Int)
+                  -- runErrorHevm always replies with RpcError _ (String
+                  -- "boom"); pre-fix this decoded to ControlErr "\"boom\""
+                  -- (aeson-quoted) instead of the unwrapped token below.
+                  resp @?= ControlErr "boom"
           , testCase "reply with an unknown id reports unknown id" $ do
               sockPath <- freshSockPath
               let ctlPath = sockPath <> ".ctl"
@@ -254,6 +297,36 @@ main =
                       (SendReq "echo" (Array (V.fromList [Number 7])))
                       (100 :: Int)
                   resp @?= SendOk (Array (V.fromList [Number 7]))
+          , testCase "hevm inbound request: poll returns it, reply delivers a response hevm observes" $ do
+              -- End-to-end proof of spec success criterion 2 (and the fix
+              -- for C3): FakeHevm plays the HEVM role and injects one
+              -- inbound (HEVM -> Foundry) request; the test plays the
+              -- Foundry role, polling for it and replying, and asserts
+              -- FakeHevm actually receives the matching response.
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  cfg = Config sockPath ctlPath 5 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                replyVar <- newEmptyMVar
+                let inboundId = Number 99
+                    inboundMethod = "eth_blockNumber"
+                    inboundParams = Null
+                    inboundReq = RpcRequest inboundId inboundMethod inboundParams
+                withAsync (runInboundRequestHevm sockPath inboundReq replyVar) $ \_ -> do
+                  pollResp <- pollRetrying ctlPath (100 :: Int)
+                  case pollResp of
+                    PollOk rid method params -> do
+                      rid @?= inboundId
+                      method @?= inboundMethod
+                      params @?= inboundParams
+                      replyResp <- sendControlReq ctlPath (ReplyReq rid (String "0x2a"))
+                      replyResp @?= ReplyOk
+                      mObserved <- timeout 3000000 (takeMVar replyVar)
+                      case mObserved of
+                        Nothing -> assertFailure "hevm did not observe a reply within 3s"
+                        Just observed -> observed @?= RpcResult rid (String "0x2a")
+                    other -> assertFailure ("expected PollOk, got " ++ show other)
           ]
       , testGroup
           "cli"
@@ -292,6 +365,20 @@ main =
                   assertBool ("expected a non-zero exit code, got " ++ show code) (code /= ExitSuccess)
                   out @?= ""
                   assertBool ("expected non-empty stderr, got: " ++ show err) (not (null err))
+          , testCase "relay poll returns a hevm inbound request as three-line stdout via CLI" $ do
+              binPath <- relayBinPath
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  cfg = Config sockPath ctlPath 5 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                replyVar <- newEmptyMVar
+                let inboundReq = RpcRequest (Number 7) "eth_chainId" Null
+                withAsync (runInboundRequestHevm sockPath inboundReq replyVar) $ \_ -> do
+                  (code, out, err) <- runRelayCliPollRetrying binPath sockPath (100 :: Int)
+                  code @?= ExitSuccess
+                  err @?= ""
+                  lines out @?= ["7", "eth_chainId", "null"]
           ]
       ]
 
@@ -314,6 +401,19 @@ runRelayCli binPath sockPath args = do
   let cp = (proc binPath args) {env = Just (("RELAY_SOCK", sockPath) : baseEnv)}
   readCreateProcessWithExitCode cp ""
 
+-- | Like 'runRelayCli' invoking @poll@, but retries while the response is
+-- an empty success (exit 0, empty stdout): the FakeHevm inbound request
+-- may not have been enqueued by the daemon yet.
+runRelayCliPollRetrying :: FilePath -> FilePath -> Int -> IO (ExitCode, String, String)
+runRelayCliPollRetrying binPath sockPath n = do
+  result@(code, out, _) <- runRelayCli binPath sockPath ["poll"]
+  case code of
+    ExitSuccess
+      | null out && n > 0 -> do
+          threadDelay 20000
+          runRelayCliPollRetrying binPath sockPath (n - 1)
+    _ -> pure result
+
 -- | Like 'runRelayCli', but retries while the daemon reports
 -- @"hevm not connected"@, matching 'sendControlReqRetrying' below: the
 -- FakeHevm data-plane connection may not have finished dialing in yet.
@@ -327,6 +427,15 @@ runRelayCliRetrying binPath sockPath args n = do
           threadDelay 20000
           runRelayCliRetrying binPath sockPath args (n - 1)
       | otherwise -> pure result
+
+-- | Unwrap a successful 'push' in test setup where overflow is not the
+-- point of the test. A total 'case' (both constructors handled), so this
+-- doesn't itself trip @-Wincomplete-uni-patterns@ the way the pattern-bound
+-- @let Right q1 = ...@ it replaces did.
+mustPush :: a -> Queue a -> Queue a
+mustPush x q = case push x q of
+  Right q' -> q'
+  Left Overflow -> error "mustPush: unexpected overflow in test setup"
 
 isControlErr :: ControlResp -> Bool
 isControlErr (ControlErr _) = True
@@ -378,6 +487,19 @@ sendControlReqRetrying path req n = do
     ControlErr "hevm not connected" | n > 0 -> do
       threadDelay 20000
       sendControlReqRetrying path req (n - 1)
+    _ -> pure resp
+
+-- | Poll the control socket, retrying while the queue is still empty: the
+-- FakeHevm inbound request may not have reached the daemon's session queue
+-- yet. Each retry is a fresh control connection, matching the
+-- one-request-per-connection contract.
+pollRetrying :: FilePath -> Int -> IO ControlResp
+pollRetrying path n = do
+  resp <- sendControlReq path PollReq
+  case resp of
+    PollEmpty | n > 0 -> do
+      threadDelay 20000
+      pollRetrying path (n - 1)
     _ -> pure resp
 
 -- | Dial the control socket, write one NDJSON request line, read one
