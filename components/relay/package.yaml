@@ -50,6 +50,14 @@ executables:
     source-dirs: app/relay
     dependencies:
     - evm-spec-bridge-relay
+  fake-hevm-echo:
+    main: Main.hs
+    source-dirs: app/fake-hevm-echo
+    dependencies:
+    - evm-spec-bridge-relay
+    - aeson
+    - bytestring
+    - network
 
 tests:
   relay-test:

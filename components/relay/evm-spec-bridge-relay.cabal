@@ -41,6 +41,29 @@ library
     , text
   default-language: Haskell2010
 
+executable fake-hevm-echo
+  main-is: Main.hs
+  other-modules:
+      Paths_evm_spec_bridge_relay
+  autogen-modules:
+      Paths_evm_spec_bridge_relay
+  hs-source-dirs:
+      app/fake-hevm-echo
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      aeson
+    , async
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , directory
+    , evm-spec-bridge-relay
+    , network
+    , optparse-applicative
+    , stm
+    , text
+  default-language: Haskell2010
+
 executable relay
   main-is: Main.hs
   other-modules:

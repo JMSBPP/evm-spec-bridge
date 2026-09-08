@@ -7,5 +7,10 @@ solc = "0.8.34"
 evm_version = "prague"
 fuzz = { runs = 16 }
 
+# StdCheats-style hevm.call path (vm.ffi → relay). Opt-in so Phase 4 HTTP
+# oracle tests do not require ffi.
+[profile.hevm]
+ffi = true
+
 [rpc_endpoints]
 evm_spec_bridge = "${EVM_SPEC_BRIDGE_URL}"

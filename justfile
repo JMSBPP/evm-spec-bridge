@@ -60,6 +60,10 @@ boundary-sweep:
 wedge-red:
     ./scripts/wedge-red-test.sh
 
+# Issue #2: hevm.call via StdCheats-style ffi → relay → FakeHevm echo.
+hevm-call:
+    ./scripts/hevm-call-smoke.sh
+
 version-sweep:
     ./scripts/foundry-pin.sh
     ./scripts/run-with-stub.sh success 8899 "forge test --match-test test_success -vvvv"
