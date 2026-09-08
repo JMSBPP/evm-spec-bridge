@@ -1,7 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
+import Bridge.Relay.Control
 import Bridge.Relay.Queue
+import Bridge.Relay.Types
+import Data.Aeson (Value (..))
+import qualified Data.Vector as V
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.HUnit ((@?=), testCase)
 
@@ -27,5 +31,16 @@ main =
           , testCase "overflow at bound" $ do
               let Right q1 = push (1 :: Int) (emptyQueue 1)
               push 2 q1 @?= Left Overflow
+          ]
+      , testGroup
+          "control"
+          [ testCase "roundtrip send req" $ do
+              let req = SendReq "foo" (Array (V.fromList [Number 1]))
+                  bs = encodeControlReq req
+              decodeControlReq bs @?= Right req
+          , testCase "poll empty resp" $ do
+              decodeControlResp "{\"ok\":true,\"empty\":true}\n" @?= Right PollEmpty
+          , testCase "error resp" $ do
+              decodeControlResp "{\"ok\":false,\"error\":\"timeout\"}\n" @?= Right (ControlErr "timeout")
           ]
       ]
