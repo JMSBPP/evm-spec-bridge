@@ -9,14 +9,22 @@ import Bridge.Relay.Session
 import Bridge.Relay.Types
 import Bridge.Relay.Wire
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (async, cancel, withAsync)
+import Control.Concurrent.Async (async, cancel, wait, withAsync)
+import Control.Concurrent.MVar (newEmptyMVar, takeMVar)
 import Control.Exception (IOException, bracket, catch)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Aeson (Value (..))
 import Data.List (isInfixOf)
 import qualified Data.Vector as V
-import FakeHevm (connectAndHangUp, runEchoHevm)
+import FakeHevm
+  ( connectAndHangUp
+  , connectAndHangUpAfter
+  , runEchoHevm
+  , runErrorHevm
+  , runOverflowHevm
+  , runSilentHevm
+  )
 import Network.Socket
   ( Family (AF_UNIX)
   , SockAddr (SockAddrUnix)
@@ -174,6 +182,78 @@ main =
                 case mresp of
                   Nothing -> assertFailure "send did not return within 3s (waited out the timeout instead of failing promptly)"
                   Just resp -> assertBool ("expected a ControlErr, got " ++ show resp) (isControlErr resp)
+          , testCase "send with hevm connected but silent times out around cfgTimeoutSec" $ do
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  cfg = Config sockPath ctlPath 2 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                withAsync (runSilentHevm sockPath) $ \_ -> do
+                  respAsync <-
+                    async
+                      ( sendControlReqRetrying
+                          ctlPath
+                          (SendReq "echo" (Array (V.fromList [Number 1])))
+                          (100 :: Int)
+                      )
+                  -- Assert it hasn't resolved well before the 2s timeout
+                  -- elapses (i.e. it isn't failing instantly for some other
+                  -- reason), then that it does resolve to a timeout error
+                  -- shortly after the 2s mark.
+                  early <- timeout 1500000 (wait respAsync)
+                  early @?= Nothing
+                  mresp <- timeout 2500000 (wait respAsync)
+                  case mresp of
+                    Nothing -> assertFailure "send did not time out within ~2s of hevm staying silent"
+                    Just resp -> resp @?= ControlErr "timeout"
+          , testCase "hevm disconnect mid-wait fails the pending send promptly" $ do
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  -- Generously large timeout: if the disconnect-mid-wait
+                  -- fix regressed, this would take >= 20s (waiting out the
+                  -- full timeout) instead of failing shortly after HEVM
+                  -- hangs up.
+                  cfg = Config sockPath ctlPath 20 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                withAsync (connectAndHangUpAfter sockPath 300000) $ \_ -> do
+                  mresp <-
+                    timeout
+                      3000000
+                      ( sendControlReqRetrying
+                          ctlPath
+                          (SendReq "echo" (Array (V.fromList [Number 1])))
+                          (100 :: Int)
+                      )
+                  case mresp of
+                    Nothing -> assertFailure "send did not return within 3s of hevm disconnecting mid-wait"
+                    Just resp -> assertBool ("expected a ControlErr, got " ++ show resp) (isControlErr resp)
+          , testCase "reply with an unknown id reports unknown id" $ do
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  cfg = Config sockPath ctlPath 5 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                resp <- sendControlReq ctlPath (ReplyReq (Number 999) (String "ok"))
+                resp @?= ControlErr "unknown id"
+          , testCase "queue overflow at bound rejects the second inbound over the wire, session still serves send" $ do
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  cfg = Config sockPath ctlPath 5 1
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                rejectedVar <- newEmptyMVar
+                withAsync (runOverflowHevm sockPath rejectedVar) $ \_ -> do
+                  mrej <- timeout 3000000 (takeMVar rejectedVar)
+                  case mrej of
+                    Nothing -> assertFailure "hevm did not observe an overflow rejection response within 3s"
+                    Just resp -> assertBool ("expected an RpcError, got " ++ show resp) (isRpcError resp)
+                  resp <-
+                    sendControlReqRetrying
+                      ctlPath
+                      (SendReq "echo" (Array (V.fromList [Number 7])))
+                      (100 :: Int)
+                  resp @?= SendOk (Array (V.fromList [Number 7]))
           ]
       , testGroup
           "cli"
@@ -199,6 +279,19 @@ main =
               assertBool
                 ("expected stderr to mention relayd unavailable, got: " ++ show err)
                 ("relayd unavailable" `isInfixOf` err)
+          , testCase "relay send with a hevm JSON-RPC error reply exits non-zero with empty stdout" $ do
+              binPath <- relayBinPath
+              sockPath <- freshSockPath
+              let ctlPath = sockPath <> ".ctl"
+                  cfg = Config sockPath ctlPath 5 64
+              bracket (async (runRelayd cfg)) cancel $ \_ -> do
+                waitUntilListening ctlPath
+                withAsync (runErrorHevm sockPath) $ \_ -> do
+                  (code, out, err) <-
+                    runRelayCliRetrying binPath sockPath ["send", "fail", "[]"] (100 :: Int)
+                  assertBool ("expected a non-zero exit code, got " ++ show code) (code /= ExitSuccess)
+                  out @?= ""
+                  assertBool ("expected non-empty stderr, got: " ++ show err) (not (null err))
           ]
       ]
 
@@ -238,6 +331,10 @@ runRelayCliRetrying binPath sockPath args n = do
 isControlErr :: ControlResp -> Bool
 isControlErr (ControlErr _) = True
 isControlErr _ = False
+
+isRpcError :: RpcResponse -> Bool
+isRpcError (RpcError _ _) = True
+isRpcError _ = False
 
 -- | Create a fresh, not-yet-existing path suitable for a Unix socket:
 -- allocate a uniquely-named temp file (guaranteeing no collision with other

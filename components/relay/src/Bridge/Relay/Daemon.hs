@@ -52,6 +52,7 @@ import Control.Concurrent.STM.TMVar
   , newEmptyTMVarIO
   , putTMVar
   , takeTMVar
+  , tryPutTMVar
   )
 import Control.Exception
   ( IOException
@@ -59,7 +60,7 @@ import Control.Exception
   , try
   )
 import Control.Monad (forever, void)
-import Data.Aeson (Value (String))
+import Data.Aeson (Value (Null, String))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Map.Strict (Map)
@@ -168,6 +169,11 @@ dataLoop ds sock = forever $ do
       Just curH | curH == h -> do
         writeTVar (dsHevmHandle ds) Nothing
         void (stepTVar (dsSession ds) EvDisconnect)
+        -- The connection we were reading from just dropped: any outbound
+        -- 'send' currently blocked awaiting a reply on this handle will
+        -- never get one, so fail it now instead of idling out the full
+        -- 'cfgTimeoutSec'.
+        failOutstandingWaiters ds
       _ -> pure ()
 
 readHevmLines :: DaemonState -> Handle -> IO ()
@@ -297,6 +303,18 @@ stepTVar var ev = do
   let (s', eff) = step ev s
   writeTVar var s'
   pure eff
+
+-- | Unblock every currently pending outbound-send waiter with a synthetic
+-- disconnection error rather than leaving it to idle out the full
+-- 'cfgTimeoutSec'. Uses 'tryPutTMVar' (not 'putTMVar') because a waiter may
+-- already have been filled by a genuine reply that 'sendAndAwait' hasn't
+-- yet drained from 'dsWaiters'; blocking on a full TMVar here would
+-- deadlock the data-plane loop.
+failOutstandingWaiters :: DaemonState -> STM ()
+failOutstandingWaiters ds = do
+  m <- readTVar (dsWaiters ds)
+  mapM_ (\tmv -> void (tryPutTMVar tmv (RpcError Null (String "hevm disconnected")))) (Map.elems m)
+  writeTVar (dsWaiters ds) Map.empty
 
 -- | Write a line to 'Handle', catching only synchronous 'IOException's (a
 -- closed/broken pipe, say) so callers can react to a failed write instead of
